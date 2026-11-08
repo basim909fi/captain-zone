@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:layoutDirection="rtl"
+    android:gravity="center_vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="8dp">
+
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:src="@mipmap/ic_launcher"
+            android:layout_marginStart="6dp"/>
+
+        <TextView
+            android:id="@+id/widget_month_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="إحصائيات الشهر"
+            android:textColor="#D4AF37"
+            android:textSize="12sp"/>
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/widget_orders"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="0 طلب"
+        android:textColor="#FFFFFF"
+        android:textSize="24sp"
+        android:textStyle="bold"/>
+
+    <TextView
+        android:id="@+id/widget_net"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="صافي الربح: 0 ريال"
+        android:textColor="#2FBE77"
+        android:textSize="14sp"
+        android:layout_marginTop="6dp"/>
+
+</LinearLayout>

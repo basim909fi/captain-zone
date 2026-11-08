@@ -1,0 +1,5841 @@
+import 'dart:convert';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:share_plus/share_plus.dart';
+
+void main() {
+  runApp(const CaptainZoneApp());
+}
+
+// ============================================================
+// أدوات عامة
+// ============================================================
+
+bool isSameDay(DateTime a, DateTime b) {
+  return a.year == b.year &&
+      a.month == b.month &&
+      a.day == b.day;
+}
+
+DateTime dateOnly(DateTime value) {
+  return DateTime(value.year, value.month, value.day);
+}
+
+String money(double value) {
+  return '${value.toStringAsFixed(1)} ر.س';
+}
+
+// ============================================================
+// الإعدادات
+// ============================================================
+
+class SettingsData {
+  static double orderPrice = 10.0;
+  static double monthlyRent = 0.0;
+  static int dailyTarget = 16;
+  static int monthlyGoal = 0;
+
+  static Future<void> load() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    orderPrice = prefs.getDouble('orderPrice') ?? orderPrice;
+
+    monthlyRent =
+        prefs.getDouble('monthlyRent') ??
+        prefs.getDouble('dailyRent') ??
+        monthlyRent;
+
+    dailyTarget = prefs.getInt('dailyTarget') ?? dailyTarget;
+    monthlyGoal = prefs.getInt('monthlyGoal') ?? monthlyGoal;
+  }
+
+  static Future<void> save() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setDouble('orderPrice', orderPrice);
+    await prefs.setDouble('monthlyRent', monthlyRent);
+    await prefs.setInt('dailyTarget', dailyTarget);
+    await prefs.setInt('monthlyGoal', monthlyGoal);
+  }
+}
+
+// ============================================================
+// سجل اليوم
+// ============================================================
+
+class DailyRecord {
+  DateTime date;
+  bool isWorkDay;
+  int ordersCount;
+  double orderPrice;
+
+  DailyRecord({
+    required this.date,
+    required this.isWorkDay,
+    this.ordersCount = 0,
+    double? orderPrice,
+  }) : orderPrice = orderPrice ?? SettingsData.orderPrice;
+
+  double get grossIncome {
+    return isWorkDay ? ordersCount * orderPrice : 0.0;
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'date': date.toIso8601String(),
+      'isWorkDay': isWorkDay,
+      'ordersCount': ordersCount,
+      'orderPrice': orderPrice,
+    };
+  }
+
+  factory DailyRecord.fromJson(Map<String, dynamic> json) {
+    return DailyRecord(
+      date: DateTime.parse(json['date'].toString()),
+      isWorkDay: json['isWorkDay'] == true,
+      ordersCount: (json['ordersCount'] as num?)?.toInt() ?? 0,
+      orderPrice: (json['orderPrice'] as num?)?.toDouble(),
+    );
+  }
+}
+
+// ============================================================
+// إيجار الشهر
+// ============================================================
+
+class MonthlyRentEntry {
+  final int year;
+  final int month;
+  double amount;
+
+  MonthlyRentEntry({
+    required this.year,
+    required this.month,
+    required this.amount,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'year': year,
+      'month': month,
+      'amount': amount,
+    };
+  }
+
+  factory MonthlyRentEntry.fromJson(Map<String, dynamic> json) {
+    return MonthlyRentEntry(
+      year: (json['year'] as num).toInt(),
+      month: (json['month'] as num).toInt(),
+      amount: (json['amount'] as num).toDouble(),
+    );
+  }
+}
+
+// ============================================================
+// البنزين
+// ============================================================
+
+class GasEntry {
+  DateTime date;
+  double amount;
+  bool isCompany;
+
+  GasEntry({
+    required this.date,
+    required this.amount,
+    required this.isCompany,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'date': date.toIso8601String(),
+      'amount': amount,
+      'isCompany': isCompany,
+    };
+  }
+
+  factory GasEntry.fromJson(Map<String, dynamic> json) {
+    return GasEntry(
+      date: DateTime.parse(json['date'].toString()),
+      amount: (json['amount'] as num).toDouble(),
+      isCompany: json['isCompany'] == true,
+    );
+  }
+}
+
+// ============================================================
+// المصاريف الأخرى
+// ============================================================
+
+class OtherExpense {
+  DateTime date;
+  double amount;
+  String category;
+  String description;
+
+  OtherExpense({
+    required this.date,
+    required this.amount,
+    required this.category,
+    this.description = '',
+  });
+
+  String get categoryLabel {
+    switch (category) {
+      case 'traffic_fine':
+        return 'مخالفة مرورية';
+      case 'accident':
+        return 'حادث';
+      default:
+        return 'أخرى';
+    }
+  }
+
+  String get categoryIcon {
+    switch (category) {
+      case 'traffic_fine':
+        return '🚔';
+      case 'accident':
+        return '🚗💥';
+      default:
+        return '📝';
+    }
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'date': date.toIso8601String(),
+      'amount': amount,
+      'category': category,
+      'description': description,
+    };
+  }
+
+  factory OtherExpense.fromJson(Map<String, dynamic> json) {
+    return OtherExpense(
+      date: DateTime.parse(json['date'].toString()),
+      amount: (json['amount'] as num).toDouble(),
+      category: json['category']?.toString() ?? 'other',
+      description: json['description']?.toString() ?? '',
+    );
+  }
+}
+
+// ============================================================
+// إحصائيات الشهر
+// ============================================================
+
+class MonthStats {
+  final int orders;
+  final double gross;
+  final double rent;
+  final double companyGas;
+  final double personalGas;
+  final double otherExpenses;
+
+  const MonthStats({
+    required this.orders,
+    required this.gross,
+    required this.rent,
+    required this.companyGas,
+    required this.personalGas,
+    required this.otherExpenses,
+  });
+
+  double get expenses {
+    return rent +
+        companyGas +
+        personalGas +
+        otherExpenses;
+  }
+
+  double get net {
+    return gross - expenses;
+  }
+}
+
+// ============================================================
+// الألوان
+// ============================================================
+
+class AppColors {
+  static const gold = Color(0xFFD4AF37);
+  static const goldDark = Color(0xFFC9971F);
+  static const success = Color(0xFF2FBE77);
+  static const danger = Color(0xFFE0555F);
+  static const otherExpense = Color(0xFF4A9BD9);
+}
+
+class Palette {
+  final bool isDark;
+
+  Palette(this.isDark);
+
+  List<Color> get bgGradient {
+    return isDark
+        ? const [
+            Color(0xFF0B1F3A),
+            Color(0xFF0A1428),
+          ]
+        : const [
+            Color(0xFFFFF8E8),
+            Color(0xFFF0E4C8),
+          ];
+  }
+
+  Color get navBg =>
+      isDark ? const Color(0xFF0B1F3A) : const Color(0xFFFFF2D9);
+
+  Color get appBarBg =>
+      isDark ? const Color(0xFF0B1F3A) : const Color(0xFFFFF2D9);
+
+  Color get dialogBg =>
+      isDark ? const Color(0xFF16305A) : Colors.white;
+
+  Color get textPrimary =>
+      isDark ? Colors.white : const Color(0xFF241905);
+
+  Color get textSecondary =>
+      isDark ? Colors.white70 : const Color(0xFF6B5A34);
+
+  Color get textMuted =>
+      isDark ? Colors.white54 : const Color(0xFF9C8A5E);
+
+  Color get gold =>
+      isDark ? AppColors.gold : AppColors.goldDark;
+
+  Color get cardBorder =>
+      isDark ? Colors.white.withOpacity(.14) : const Color(0xFFE9D9AE);
+
+  Color get inputFill =>
+      isDark ? Colors.white.withOpacity(.08) : const Color(0xFFF4E9CC);
+}
+
+class GlassCard extends StatelessWidget {
+  final Widget child;
+  final Palette palette;
+  final EdgeInsetsGeometry padding;
+
+  const GlassCard({
+    super.key,
+    required this.child,
+    required this.palette,
+    this.padding = const EdgeInsets.all(18),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: palette.isDark
+            ? Colors.white.withOpacity(.06)
+            : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: palette.cardBorder),
+        boxShadow: [
+          BoxShadow(
+            color: palette.isDark
+                ? Colors.black.withOpacity(.25)
+                : const Color(0xFFD8C79A).withOpacity(.4),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+InputDecoration glassInputDecoration(
+  Palette p,
+  String label,
+) {
+  return InputDecoration(
+    labelText: label,
+    labelStyle: TextStyle(color: p.textSecondary),
+    filled: true,
+    fillColor: p.inputFill,
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: p.cardBorder),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: p.gold, width: 1.5),
+    ),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+    ),
+  );
+}
+
+Widget sectionHeader(
+  Palette p,
+  IconData icon,
+  String title, {
+  Widget? trailing,
+}) {
+  return Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Row(
+        children: [
+          Icon(icon, color: p.gold, size: 20),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: TextStyle(
+              color: p.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+      if (trailing != null) trailing,
+    ],
+  );
+}
+
+// ============================================================
+// التطبيق الرئيسي
+// ============================================================
+
+class CaptainZoneApp extends StatelessWidget {
+  const CaptainZoneApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'كشف الطلبات',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        fontFamily: 'Thmanyah',
+        textTheme: ThemeData.light()
+            .textTheme
+            .apply(fontFamily: 'Thmanyah'),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF0B1F3A),
+        ),
+      ),
+      home: const RootShell(),
+    );
+  }
+}
+
+class RootShell extends StatefulWidget {
+  const RootShell({super.key});
+
+  @override
+  State<RootShell> createState() => _RootShellState();
+}
+
+class _RootShellState extends State<RootShell> {
+  bool isLoading = true;
+  bool isDarkMode = true;
+  int currentTab = 0;
+
+  // الوردية الحالية
+  bool shiftOpen = false;
+  DateTime? shiftStartDate;
+  int todayOrders = 0;
+  double activeOrderPrice = SettingsData.orderPrice;
+
+  // البيانات
+  final List<DailyRecord> records = [];
+  final List<MonthlyRentEntry> monthlyRents = [];
+  final List<GasEntry> gasEntries = [];
+  final List<OtherExpense> otherExpenses = [];
+
+  int selectedMonth = DateTime.now().month;
+  int selectedYear = DateTime.now().year;
+
+  bool isGeneratingReport = false;
+  ui.Image? logoImage;
+
+  final List<String> monthNames = const [
+    '',
+    'يناير',
+    'فبراير',
+    'مارس',
+    'أبريل',
+    'مايو',
+    'يونيو',
+    'يوليو',
+    'أغسطس',
+    'سبتمبر',
+    'أكتوبر',
+    'نوفمبر',
+    'ديسمبر',
+  ];
+
+  Palette get palette => Palette(isDarkMode);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAllData();
+    _loadLogoImage();
+  }
+
+  // ============================================================
+  // أدوات عامة
+  // ============================================================
+
+  void _showSnackBar(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  Future<bool> _confirmDialog({
+    required String title,
+    required String message,
+    String confirmText = 'تأكيد',
+  }) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: palette.dialogBg,
+          title: Text(
+            title,
+            style: TextStyle(color: palette.textPrimary),
+          ),
+          content: Text(
+            message,
+            style: TextStyle(
+              color: palette.textSecondary,
+              height: 1.5,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+              },
+              child: const Text('إلغاء'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, true);
+              },
+              child: Text(confirmText),
+            ),
+          ],
+        );
+      },
+    );
+
+    return result == true;
+  }
+
+  Future<DateTime?> _pickDate({
+    required DateTime initialDate,
+    DateTime? lastDate,
+  }) {
+    final today = dateOnly(DateTime.now());
+    var safeInitial = dateOnly(initialDate);
+
+    if (safeInitial.isAfter(today)) {
+      safeInitial = today;
+    }
+
+    return showDatePicker(
+      context: context,
+      initialDate: safeInitial,
+      firstDate: DateTime(2023, 1, 1),
+      lastDate: lastDate ?? today,
+    );
+  }
+
+  bool _isFutureDate(DateTime date) {
+    return dateOnly(date).isAfter(
+      dateOnly(DateTime.now()),
+    );
+  }
+
+  // ============================================================
+  // تحميل البيانات
+  // ============================================================
+
+  Future<void> _loadLogoImage() async {
+    try {
+      final data = await rootBundle.load(
+        'assets/icon/icon.png',
+      );
+
+      final bytes = data.buffer.asUint8List();
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+
+      if (!mounted) return;
+
+      setState(() {
+        logoImage = frame.image;
+      });
+    } catch (_) {
+      logoImage = null;
+    }
+  }
+
+  Future<void> _loadAllData() async {
+    try {
+      await SettingsData.load();
+
+      final prefs = await SharedPreferences.getInstance();
+
+      isDarkMode = prefs.getBool('isDarkMode') ?? true;
+
+      final recordsJson = prefs.getString('records');
+
+      if (recordsJson != null && recordsJson.isNotEmpty) {
+        final decoded = jsonDecode(recordsJson);
+
+        if (decoded is List) {
+          records.addAll(
+            decoded.map(
+              (item) => DailyRecord.fromJson(
+                Map<String, dynamic>.from(item),
+              ),
+            ),
+          );
+        }
+      }
+
+      final rentsJson = prefs.getString('monthlyRents');
+
+      if (rentsJson != null && rentsJson.isNotEmpty) {
+        final decoded = jsonDecode(rentsJson);
+
+        if (decoded is List) {
+          monthlyRents.addAll(
+            decoded.map(
+              (item) => MonthlyRentEntry.fromJson(
+                Map<String, dynamic>.from(item),
+              ),
+            ),
+          );
+        }
+      }
+
+      if (monthlyRents.isEmpty) {
+        monthlyRents.add(
+          MonthlyRentEntry(
+            year: DateTime.now().year,
+            month: DateTime.now().month,
+            amount: SettingsData.monthlyRent,
+          ),
+        );
+      }
+
+      final gasJson = prefs.getString('gasEntries');
+
+      if (gasJson != null && gasJson.isNotEmpty) {
+        final decoded = jsonDecode(gasJson);
+
+        if (decoded is List) {
+          gasEntries.addAll(
+            decoded.map(
+              (item) => GasEntry.fromJson(
+                Map<String, dynamic>.from(item),
+              ),
+            ),
+          );
+        }
+      }
+
+      final otherJson = prefs.getString('otherExpenses');
+
+      if (otherJson != null && otherJson.isNotEmpty) {
+        final decoded = jsonDecode(otherJson);
+
+        if (decoded is List) {
+          otherExpenses.addAll(
+            decoded.map(
+              (item) => OtherExpense.fromJson(
+                Map<String, dynamic>.from(item),
+              ),
+            ),
+          );
+        }
+      }
+
+      final activeShiftJson =
+          prefs.getString('activeShift');
+
+      if (activeShiftJson != null &&
+          activeShiftJson.isNotEmpty) {
+        final data = jsonDecode(activeShiftJson);
+
+        shiftOpen = true;
+
+        shiftStartDate = DateTime.parse(
+          data['shiftStartDate'].toString(),
+        );
+
+        todayOrders =
+            (data['ordersCount'] as num?)?.toInt() ?? 0;
+
+        activeOrderPrice =
+            (data['orderPrice'] as num?)?.toDouble() ??
+                SettingsData.orderPrice;
+      }
+
+      await _saveAllData();
+
+      if (!mounted) return;
+
+      setState(() {
+        isLoading = false;
+      });
+
+      if (shiftOpen && shiftStartDate != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+
+          _showSnackBar(
+            'توجد وردية مفتوحة بدأت بتاريخ '
+            '${DateFormat('yyyy-MM-dd').format(shiftStartDate!)}',
+          );
+        });
+      }
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        isLoading = false;
+      });
+
+      _showSnackBar(
+        'تعذر تحميل بعض البيانات المحفوظة',
+      );
+    }
+  }
+
+  // ============================================================
+  // الحفظ
+  // ============================================================
+
+  Future<void> _saveRecords() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString(
+      'records',
+      jsonEncode(
+        records.map((record) => record.toJson()).toList(),
+      ),
+    );
+  }
+
+  Future<void> _saveMonthlyRents() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString(
+      'monthlyRents',
+      jsonEncode(
+        monthlyRents.map((rent) => rent.toJson()).toList(),
+      ),
+    );
+  }
+
+  Future<void> _saveGasEntries() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString(
+      'gasEntries',
+      jsonEncode(
+        gasEntries.map((entry) => entry.toJson()).toList(),
+      ),
+    );
+  }
+
+  Future<void> _saveOtherExpenses() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString(
+      'otherExpenses',
+      jsonEncode(
+        otherExpenses.map((expense) => expense.toJson()).toList(),
+      ),
+    );
+  }
+
+  Future<void> _saveAllData() async {
+    await _saveRecords();
+    await _saveMonthlyRents();
+    await _saveGasEntries();
+    await _saveOtherExpenses();
+    await SettingsData.save();
+  }
+
+  Future<void> _saveActiveShift() async {
+    if (shiftStartDate == null) return;
+
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString(
+      'activeShift',
+      jsonEncode({
+        'shiftStartDate':
+            shiftStartDate!.toIso8601String(),
+        'ordersCount': todayOrders,
+        'orderPrice': activeOrderPrice,
+      }),
+    );
+  }
+
+  Future<void> _clearActiveShift() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('activeShift');
+  }
+
+  // ============================================================
+  // البحث والتحديث
+  // ============================================================
+
+  DailyRecord? _recordForDate(DateTime date) {
+    for (final record in records) {
+      if (isSameDay(record.date, date)) {
+        return record;
+      }
+    }
+
+    return null;
+  }
+
+  MonthlyRentEntry? _rentForMonth(
+    int year,
+    int month,
+  ) {
+    for (final rent in monthlyRents) {
+      if (rent.year == year && rent.month == month) {
+        return rent;
+      }
+    }
+
+    return null;
+  }
+
+  double _rentAmountForMonth(
+    int year,
+    int month,
+  ) {
+    final savedRent = _rentForMonth(year, month);
+
+    if (savedRent != null) {
+      return savedRent.amount;
+    }
+
+    final now = DateTime.now();
+
+    if (year == now.year && month == now.month) {
+      return SettingsData.monthlyRent;
+    }
+
+    return 0.0;
+  }
+
+  void _upsertRecord(DailyRecord newRecord) {
+    records.removeWhere(
+      (record) => isSameDay(
+        record.date,
+        newRecord.date,
+      ),
+    );
+
+    records.add(newRecord);
+  }
+
+  void _upsertRent(MonthlyRentEntry newRent) {
+    final index = monthlyRents.indexWhere(
+      (rent) =>
+          rent.year == newRent.year &&
+          rent.month == newRent.month,
+    );
+
+    if (index >= 0) {
+      monthlyRents[index] = newRent;
+    } else {
+      monthlyRents.add(newRent);
+    }
+  }
+
+  // ============================================================
+  // الوردية
+  // ============================================================
+
+  Future<void> startNewShift() async {
+    if (shiftOpen) {
+      _showSnackBar('توجد وردية مفتوحة بالفعل');
+      return;
+    }
+
+    setState(() {
+      shiftOpen = true;
+      shiftStartDate = DateTime.now();
+      todayOrders = 0;
+      activeOrderPrice = SettingsData.orderPrice;
+    });
+
+    await _saveActiveShift();
+
+    _showSnackBar('بدأت وردية جديدة');
+  }
+
+  Future<void> incrementOrders() async {
+    if (!shiftOpen) {
+      _showSnackBar('ابدأ الوردية أولًا');
+      return;
+    }
+
+    setState(() {
+      todayOrders++;
+    });
+
+    await _saveActiveShift();
+  }
+
+  Future<void> decrementOrders() async {
+    if (!shiftOpen) return;
+
+    if (todayOrders <= 0) {
+      _showSnackBar('لا يمكن أن يكون عدد الطلبات أقل من صفر');
+      return;
+    }
+
+    setState(() {
+      todayOrders--;
+    });
+
+    await _saveActiveShift();
+  }
+
+  Future<void> editShiftDate() async {
+    if (!shiftOpen || shiftStartDate == null) return;
+
+    final result = await _pickDate(
+      initialDate: shiftStartDate!,
+    );
+
+    if (result == null) return;
+
+    setState(() {
+      shiftStartDate = dateOnly(result);
+    });
+
+    await _saveActiveShift();
+
+    _showSnackBar('تم تعديل تاريخ بداية الوردية');
+  }
+
+  Future<void> finishWorkDay() async {
+    if (!shiftOpen || shiftStartDate == null) {
+      return;
+    }
+
+    final confirmed = await _confirmDialog(
+      title: 'حفظ وإنهاء الوردية',
+      message:
+          'سيتم حفظ الوردية على تاريخ بدايتها:\n'
+          '${DateFormat('yyyy-MM-dd').format(shiftStartDate!)}\n\n'
+          'عدد الطلبات: $todayOrders\n'
+          'سعر الطلب: ${money(activeOrderPrice)}\n\n'
+          'هل تريد المتابعة؟',
+      confirmText: 'حفظ وإنهاء',
+    );
+
+    if (!confirmed) return;
+
+    final recordDate = dateOnly(shiftStartDate!);
+    final oldRecord = _recordForDate(recordDate);
+
+    if (oldRecord != null) {
+      final replaceConfirmed = await _confirmDialog(
+        title: 'استبدال سجل موجود',
+        message:
+            'يوجد سجل سابق لهذا التاريخ، وسيتم استبداله ببيانات الوردية الحالية. هل تريد المتابعة؟',
+        confirmText: 'استبدال',
+      );
+
+      if (!replaceConfirmed) return;
+    }
+
+    final record = DailyRecord(
+      date: recordDate,
+      isWorkDay: true,
+      ordersCount: todayOrders,
+      orderPrice: activeOrderPrice,
+    );
+
+    setState(() {
+      _upsertRecord(record);
+
+      shiftOpen = false;
+      shiftStartDate = null;
+      todayOrders = 0;
+      activeOrderPrice = SettingsData.orderPrice;
+    });
+
+    await _saveRecords();
+    await _clearActiveShift();
+
+    _showSnackBar(
+      'تم حفظ الوردية ويمكنك بدء وردية جديدة الآن ✅',
+    );
+  }
+
+  Future<void> markHoliday() async {
+    if (shiftOpen) {
+      _showSnackBar(
+        'توجد وردية مفتوحة. أغلق الوردية الحالية أولًا.',
+      );
+      return;
+    }
+
+    final today = dateOnly(DateTime.now());
+    final oldRecord = _recordForDate(today);
+
+    if (oldRecord != null) {
+      final confirmed = await _confirmDialog(
+        title: 'استبدال سجل اليوم',
+        message:
+            'يوجد سجل محفوظ لليوم. هل تريد استبداله بيوم إجازة؟',
+        confirmText: 'استبدال',
+      );
+
+      if (!confirmed) return;
+    } else {
+      final confirmed = await _confirmDialog(
+        title: 'تسجيل إجازة',
+        message: 'هل تريد تسجيل اليوم كإجازة؟',
+        confirmText: 'تسجيل إجازة',
+      );
+
+      if (!confirmed) return;
+    }
+
+    setState(() {
+      _upsertRecord(
+        DailyRecord(
+          date: today,
+          isWorkDay: false,
+          ordersCount: 0,
+          orderPrice: SettingsData.orderPrice,
+        ),
+      );
+    });
+
+    await _saveRecords();
+
+    _showSnackBar('تم تسجيل اليوم كإجازة');
+  }
+
+  // ============================================================
+  // الحسابات والإحصائيات
+  // ============================================================
+
+  List<DailyRecord> _recordsFor(
+    int year,
+    int month,
+  ) {
+    final list = records
+        .where(
+          (record) =>
+              record.date.year == year &&
+              record.date.month == month,
+        )
+        .toList();
+
+    list.sort(
+      (a, b) => b.date.compareTo(a.date),
+    );
+
+    return list;
+  }
+
+  List<GasEntry> _gasFor(
+    int year,
+    int month,
+  ) {
+    final list = gasEntries
+        .where(
+          (entry) =>
+              entry.date.year == year &&
+              entry.date.month == month,
+        )
+        .toList();
+
+    list.sort(
+      (a, b) => b.date.compareTo(a.date),
+    );
+
+    return list;
+  }
+
+  List<OtherExpense> _otherFor(
+    int year,
+    int month,
+  ) {
+    final list = otherExpenses
+        .where(
+          (expense) =>
+              expense.date.year == year &&
+              expense.date.month == month,
+        )
+        .toList();
+
+    list.sort(
+      (a, b) => b.date.compareTo(a.date),
+    );
+
+    return list;
+  }
+
+  List<DailyRecord> get filteredRecords {
+    return _recordsFor(
+      selectedYear,
+      selectedMonth,
+    );
+  }
+
+  List<GasEntry> get filteredGasEntries {
+    return _gasFor(
+      selectedYear,
+      selectedMonth,
+    );
+  }
+
+  List<OtherExpense> get filteredOtherExpenses {
+    return _otherFor(
+      selectedYear,
+      selectedMonth,
+    );
+  }
+
+  int get monthlyOrders {
+    return filteredRecords.fold(
+      0,
+      (sum, record) => sum + record.ordersCount,
+    );
+  }
+
+  double get monthlyGross {
+    return filteredRecords.fold(
+      0.0,
+      (sum, record) => sum + record.grossIncome,
+    );
+  }
+
+  double get monthlyRent {
+    return _rentAmountForMonth(
+      selectedYear,
+      selectedMonth,
+    );
+  }
+
+  double get monthlyCompanyGas {
+    return filteredGasEntries
+        .where((entry) => entry.isCompany)
+        .fold(
+          0.0,
+          (sum, entry) => sum + entry.amount,
+        );
+  }
+
+  double get monthlyPersonalGas {
+    return filteredGasEntries
+        .where((entry) => !entry.isCompany)
+        .fold(
+          0.0,
+          (sum, entry) => sum + entry.amount,
+        );
+  }
+
+  double get monthlyOtherExpenses {
+    return filteredOtherExpenses.fold(
+      0.0,
+      (sum, expense) => sum + expense.amount,
+    );
+  }
+
+  double get monthlyNet {
+    return monthlyGross -
+        monthlyRent -
+        monthlyCompanyGas -
+        monthlyPersonalGas -
+        monthlyOtherExpenses;
+  }
+
+  MonthStats _statsFor(
+    int year,
+    int month,
+  ) {
+    final targetRecords = _recordsFor(year, month);
+    final targetGas = _gasFor(year, month);
+    final targetOther = _otherFor(year, month);
+
+    final orders = targetRecords.fold(
+      0,
+      (sum, record) => sum + record.ordersCount,
+    );
+
+    final gross = targetRecords.fold(
+      0.0,
+      (sum, record) => sum + record.grossIncome,
+    );
+
+    final rent = _rentAmountForMonth(year, month);
+
+    final companyGas = targetGas
+        .where((entry) => entry.isCompany)
+        .fold(
+          0.0,
+          (sum, entry) => sum + entry.amount,
+        );
+
+    final personalGas = targetGas
+        .where((entry) => !entry.isCompany)
+        .fold(
+          0.0,
+          (sum, entry) => sum + entry.amount,
+        );
+
+    final otherExpenses = targetOther.fold(
+      0.0,
+      (sum, expense) => sum + expense.amount,
+    );
+
+    return MonthStats(
+      orders: orders,
+      gross: gross,
+      rent: rent,
+      companyGas: companyGas,
+      personalGas: personalGas,
+      otherExpenses: otherExpenses,
+    );
+  }
+
+  Map<int, double> _dailyGrossSeries(
+    int year,
+    int month,
+  ) {
+    final result = <int, double>{};
+
+    for (final record in _recordsFor(year, month)) {
+      result[record.date.day] =
+          (result[record.date.day] ?? 0) +
+              record.grossIncome;
+    }
+
+    return result;
+  }
+
+  MonthStats get previousMonthStats {
+    var previousMonth = selectedMonth - 1;
+    var previousYear = selectedYear;
+
+    if (previousMonth < 1) {
+      previousMonth = 12;
+      previousYear--;
+    }
+
+    return _statsFor(
+      previousYear,
+      previousMonth,
+    );
+  }
+
+  bool get hasPreviousMonthData {
+    var previousMonth = selectedMonth - 1;
+    var previousYear = selectedYear;
+
+    if (previousMonth < 1) {
+      previousMonth = 12;
+      previousYear--;
+    }
+
+    return _recordsFor(previousYear, previousMonth).isNotEmpty ||
+        _gasFor(previousYear, previousMonth).isNotEmpty ||
+        _otherFor(previousYear, previousMonth).isNotEmpty ||
+        _rentForMonth(previousYear, previousMonth) != null;
+  }
+
+  double get previousMonthNet {
+    return previousMonthStats.net;
+  }
+
+  // ============================================================
+  // تغيير الشهر والسنة
+  // ============================================================
+
+  void changeMonth(int value) {
+    setState(() {
+      selectedMonth = value;
+    });
+  }
+
+  void changeYear(int value) {
+    setState(() {
+      selectedYear += value;
+    });
+  }
+
+  // ============================================================
+  // تبديل الوضع الليلي والنهاري
+  // ============================================================
+
+  Future<void> toggleDarkMode() async {
+    setState(() {
+      isDarkMode = !isDarkMode;
+    });
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isDarkMode', isDarkMode);
+  }
+
+  // ============================================================
+  // الإعدادات
+  // ============================================================
+
+  Future<void> openSettingsDialog() async {
+    final priceController = TextEditingController(
+      text: SettingsData.orderPrice.toString(),
+    );
+
+    final rentController = TextEditingController(
+      text: SettingsData.monthlyRent.toString(),
+    );
+
+    final targetController = TextEditingController(
+      text: SettingsData.dailyTarget.toString(),
+    );
+
+    final goalController = TextEditingController(
+      text: SettingsData.monthlyGoal.toString(),
+    );
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: palette.dialogBg,
+          title: Text(
+            'الإعدادات',
+            style: TextStyle(color: palette.textPrimary),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: priceController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  style: TextStyle(color: palette.textPrimary),
+                  decoration: glassInputDecoration(
+                    palette,
+                    'سعر الطلب الواحد',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: rentController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  style: TextStyle(color: palette.textPrimary),
+                  decoration: glassInputDecoration(
+                    palette,
+                    'إيجار السيارة الشهري',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: targetController,
+                  keyboardType: TextInputType.number,
+                  style: TextStyle(color: palette.textPrimary),
+                  decoration: glassInputDecoration(
+                    palette,
+                    'التارجت اليومي',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: goalController,
+                  keyboardType: TextInputType.number,
+                  style: TextStyle(color: palette.textPrimary),
+                  decoration: glassInputDecoration(
+                    palette,
+                    'هدف الطلبات الشهري - 0 بدون هدف',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('إلغاء'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final orderPrice = double.tryParse(
+                  priceController.text.trim(),
+                );
+                final monthlyRent = double.tryParse(
+                  rentController.text.trim(),
+                );
+                final dailyTarget = int.tryParse(
+                  targetController.text.trim(),
+                );
+                final monthlyGoal = int.tryParse(
+                  goalController.text.trim(),
+                );
+
+                if (orderPrice == null ||
+                    orderPrice < 0 ||
+                    monthlyRent == null ||
+                    monthlyRent < 0 ||
+                    dailyTarget == null ||
+                    dailyTarget < 0 ||
+                    monthlyGoal == null ||
+                    monthlyGoal < 0) {
+                  _showSnackBar(
+                    'تأكد من إدخال أرقام صحيحة وغير سالبة',
+                  );
+                  return;
+                }
+
+                Navigator.pop(
+                  dialogContext,
+                  {
+                    'orderPrice': orderPrice,
+                    'monthlyRent': monthlyRent,
+                    'dailyTarget': dailyTarget,
+                    'monthlyGoal': monthlyGoal,
+                  },
+                );
+              },
+              child: const Text('متابعة'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result == null) return;
+
+    final newOrderPrice = result['orderPrice'] as double;
+    final newMonthlyRent = result['monthlyRent'] as double;
+    final newDailyTarget = result['dailyTarget'] as int;
+    final newMonthlyGoal = result['monthlyGoal'] as int;
+
+    final priceChanged =
+        newOrderPrice != SettingsData.orderPrice;
+
+    final rentChanged =
+        newMonthlyRent != SettingsData.monthlyRent;
+
+    if (priceChanged || rentChanged) {
+      final confirmed = await _confirmDialog(
+        title: 'تنبيه تغيير الأسعار',
+        message:
+            'سعر الطلب الجديد سيطبق على الأيام والورديات الجديدة فقط، '
+            'وستبقى الأسعار القديمة كما هي.\n\n'
+            'الإيجار الجديد سيطبق على الأشهر الجديدة فقط، '
+            'أما الأشهر التي لها إيجار محفوظ فلن تتغير.\n\n'
+            'هل تريد المتابعة؟',
+        confirmText: 'تغيير الأسعار',
+      );
+
+      if (!confirmed) return;
+    }
+
+    setState(() {
+      SettingsData.orderPrice = newOrderPrice;
+      SettingsData.monthlyRent = newMonthlyRent;
+      SettingsData.dailyTarget = newDailyTarget;
+      SettingsData.monthlyGoal = newMonthlyGoal;
+    });
+
+    await SettingsData.save();
+
+    _showSnackBar('تم حفظ الإعدادات');
+  }
+
+  // ============================================================
+  // إيجار شهر محدد
+  // ============================================================
+
+  Future<void> editSelectedMonthRent() async {
+    final existing = _rentForMonth(
+      selectedYear,
+      selectedMonth,
+    );
+
+    final controller = TextEditingController(
+      text: (existing?.amount ?? SettingsData.monthlyRent)
+          .toString(),
+    );
+
+    final result = await showDialog<double>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: palette.dialogBg,
+          title: Text(
+            'إيجار السيارة الشهري',
+            style: TextStyle(color: palette.textPrimary),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                '${monthNames[selectedMonth]} $selectedYear',
+                style: TextStyle(
+                  color: palette.textSecondary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                keyboardType:
+                    const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                style: TextStyle(color: palette.textPrimary),
+                decoration: glassInputDecoration(
+                  palette,
+                  'الإيجار الشهري - ر.س',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('إلغاء'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final amount = double.tryParse(
+                  controller.text.trim(),
+                );
+
+                if (amount == null || amount < 0) {
+                  _showSnackBar('أدخل قيمة إيجار صحيحة');
+                  return;
+                }
+
+                Navigator.pop(dialogContext, amount);
+              },
+              child: const Text('حفظ'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result == null) return;
+
+    final previousAmount = existing?.amount;
+
+    if (previousAmount != null &&
+        previousAmount != result) {
+      final confirmed = await _confirmDialog(
+        title: 'تعديل إيجار الشهر',
+        message:
+            'سيتم تعديل إيجار شهر '
+            '${monthNames[selectedMonth]} $selectedYear '
+            'إلى ${money(result)}. هل تريد المتابعة؟',
+        confirmText: 'حفظ التعديل',
+      );
+
+      if (!confirmed) return;
+    }
+
+    final entry = MonthlyRentEntry(
+      year: selectedYear,
+      month: selectedMonth,
+      amount: result,
+    );
+
+    setState(() {
+      _upsertRent(entry);
+      SettingsData.monthlyRent = result;
+    });
+
+    await _saveMonthlyRents();
+    await SettingsData.save();
+
+    _showSnackBar('تم حفظ إيجار الشهر');
+  }
+
+  // ============================================================
+  // البنزين: إضافة وتعديل
+  // ============================================================
+
+  Future<void> openAddGasDialog({
+    GasEntry? editingEntry,
+  }) async {
+    DateTime pickedDate =
+        editingEntry?.date ?? DateTime.now();
+
+    bool isCompany =
+        editingEntry?.isCompany ?? true;
+
+    final amountController = TextEditingController(
+      text: editingEntry == null
+          ? ''
+          : editingEntry.amount.toString(),
+    );
+
+    final result = await showDialog<GasEntry>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: palette.dialogBg,
+              title: Text(
+                editingEntry == null
+                    ? 'إضافة بنزين'
+                    : 'تعديل البنزين',
+                style: TextStyle(
+                  color: palette.textPrimary,
+                ),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    OutlinedButton(
+                      onPressed: () async {
+                        final result = await _pickDate(
+                          initialDate: pickedDate,
+                        );
+
+                        if (result != null) {
+                          setDialogState(() {
+                            pickedDate = dateOnly(result);
+                          });
+                        }
+                      },
+                      child: Text(
+                        DateFormat('yyyy-MM-dd')
+                            .format(pickedDate),
+                        style: TextStyle(
+                          color: palette.textPrimary,
+                        ),
+                      ),
+                    ),
+                    RadioListTile<bool>(
+                      value: true,
+                      groupValue: isCompany,
+                      activeColor: palette.gold,
+                      title: Text(
+                        'بنزين الشركة',
+                        style: TextStyle(
+                          color: palette.textPrimary,
+                        ),
+                      ),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setDialogState(() {
+                          isCompany = value;
+                        });
+                      },
+                    ),
+                    RadioListTile<bool>(
+                      value: false,
+                      groupValue: isCompany,
+                      activeColor: palette.gold,
+                      title: Text(
+                        'بنزين جيبي',
+                        style: TextStyle(
+                          color: palette.textPrimary,
+                        ),
+                      ),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setDialogState(() {
+                          isCompany = value;
+                        });
+                      },
+                    ),
+                    TextField(
+                      controller: amountController,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      style: TextStyle(
+                        color: palette.textPrimary,
+                      ),
+                      decoration: glassInputDecoration(
+                        palette,
+                        'المبلغ - ر.س',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('إلغاء'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    if (_isFutureDate(pickedDate)) {
+                      _showSnackBar(
+                        'لا يمكن تسجيل بنزين بتاريخ مستقبلي',
+                      );
+                      return;
+                    }
+
+                    final amount = double.tryParse(
+                      amountController.text.trim(),
+                    );
+
+                    if (amount == null || amount <= 0) {
+                      _showSnackBar('أدخل مبلغًا صحيحًا');
+                      return;
+                    }
+
+                    Navigator.pop(
+                      dialogContext,
+                      GasEntry(
+                        date: dateOnly(pickedDate),
+                        amount: amount,
+                        isCompany: isCompany,
+                      ),
+                    );
+                  },
+                  child: const Text('حفظ'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result == null) return;
+
+    setState(() {
+      if (editingEntry == null) {
+        gasEntries.add(result);
+      } else {
+        final index = gasEntries.indexOf(editingEntry);
+        if (index >= 0) {
+          gasEntries[index] = result;
+        }
+      }
+    });
+
+    await _saveGasEntries();
+
+    _showSnackBar(
+      editingEntry == null
+          ? 'تمت إضافة البنزين'
+          : 'تم تعديل البنزين',
+    );
+  }
+
+  // ============================================================
+  // المصاريف الأخرى: إضافة وتعديل
+  // ============================================================
+
+  Future<void> openAddOtherExpenseDialog({
+    OtherExpense? editingExpense,
+  }) async {
+    DateTime pickedDate =
+        editingExpense?.date ?? DateTime.now();
+
+    String selectedCategory =
+        editingExpense?.category ?? 'traffic_fine';
+
+    final amountController = TextEditingController(
+      text: editingExpense == null
+          ? ''
+          : editingExpense.amount.toString(),
+    );
+
+    final descriptionController = TextEditingController(
+      text: editingExpense?.description ?? '',
+    );
+
+    final result = await showDialog<OtherExpense>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: palette.dialogBg,
+              title: Text(
+                editingExpense == null
+                    ? 'إضافة مصروف آخر'
+                    : 'تعديل المصروف',
+                style: TextStyle(
+                  color: palette.textPrimary,
+                ),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    OutlinedButton(
+                      onPressed: () async {
+                        final result = await _pickDate(
+                          initialDate: pickedDate,
+                        );
+
+                        if (result != null) {
+                          setDialogState(() {
+                            pickedDate = dateOnly(result);
+                          });
+                        }
+                      },
+                      child: Text(
+                        DateFormat('yyyy-MM-dd')
+                            .format(pickedDate),
+                        style: TextStyle(
+                          color: palette.textPrimary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    RadioListTile<String>(
+                      value: 'traffic_fine',
+                      groupValue: selectedCategory,
+                      activeColor: palette.gold,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        '🚔 مخالفة مرورية',
+                        style: TextStyle(
+                          color: palette.textPrimary,
+                        ),
+                      ),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setDialogState(() {
+                          selectedCategory = value;
+                        });
+                      },
+                    ),
+                    RadioListTile<String>(
+                      value: 'accident',
+                      groupValue: selectedCategory,
+                      activeColor: palette.gold,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        '🚗💥 حادث',
+                        style: TextStyle(
+                          color: palette.textPrimary,
+                        ),
+                      ),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setDialogState(() {
+                          selectedCategory = value;
+                        });
+                      },
+                    ),
+                    RadioListTile<String>(
+                      value: 'other',
+                      groupValue: selectedCategory,
+                      activeColor: palette.gold,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        '📝 أخرى',
+                        style: TextStyle(
+                          color: palette.textPrimary,
+                        ),
+                      ),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setDialogState(() {
+                          selectedCategory = value;
+                        });
+                      },
+                    ),
+                    if (selectedCategory == 'other')
+                      TextField(
+                        controller: descriptionController,
+                        style: TextStyle(
+                          color: palette.textPrimary,
+                        ),
+                        decoration: glassInputDecoration(
+                          palette,
+                          'وصف المصروف',
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: amountController,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      style: TextStyle(
+                        color: palette.textPrimary,
+                      ),
+                      decoration: glassInputDecoration(
+                        palette,
+                        'المبلغ - ر.س',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('إلغاء'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    if (_isFutureDate(pickedDate)) {
+                      _showSnackBar(
+                        'لا يمكن تسجيل مصروف بتاريخ مستقبلي',
+                      );
+                      return;
+                    }
+
+                    final amount = double.tryParse(
+                      amountController.text.trim(),
+                    );
+
+                    if (amount == null || amount <= 0) {
+                      _showSnackBar('أدخل مبلغًا صحيحًا');
+                      return;
+                    }
+
+                    Navigator.pop(
+                      dialogContext,
+                      OtherExpense(
+                        date: dateOnly(pickedDate),
+                        amount: amount,
+                        category: selectedCategory,
+                        description:
+                            selectedCategory == 'other'
+                                ? descriptionController.text.trim()
+                                : '',
+                      ),
+                    );
+                  },
+                  child: const Text('حفظ'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result == null) return;
+
+    setState(() {
+      if (editingExpense == null) {
+        otherExpenses.add(result);
+      } else {
+        final index = otherExpenses.indexOf(editingExpense);
+        if (index >= 0) {
+          otherExpenses[index] = result;
+        }
+      }
+    });
+
+    await _saveOtherExpenses();
+
+    _showSnackBar(
+      editingExpense == null
+          ? 'تمت إضافة المصروف'
+          : 'تم تعديل المصروف',
+    );
+  }
+
+  // ============================================================
+  // إضافة وتعديل الأيام السابقة
+  // ============================================================
+
+  Future<void> openAddPastDayDialog({
+    DailyRecord? editingRecord,
+  }) async {
+    DateTime pickedDate =
+        editingRecord?.date ?? dateOnly(DateTime.now());
+
+    bool isWorkDay = editingRecord?.isWorkDay ?? true;
+
+    final ordersController = TextEditingController(
+      text: editingRecord == null
+          ? ''
+          : editingRecord.ordersCount.toString(),
+    );
+
+    final today = dateOnly(DateTime.now());
+
+    final result = await showDialog<DailyRecord>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final isToday = isSameDay(pickedDate, today);
+
+            return AlertDialog(
+              backgroundColor: palette.dialogBg,
+              title: Text(
+                editingRecord == null
+                    ? 'إضافة يوم سابق'
+                    : 'تعديل اليوم',
+                style: TextStyle(color: palette.textPrimary),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    OutlinedButton(
+                      onPressed: () async {
+                        final result = await _pickDate(
+                          initialDate: pickedDate,
+                          lastDate: today,
+                        );
+
+                        if (result != null) {
+                          setDialogState(() {
+                            pickedDate = dateOnly(result);
+                          });
+                        }
+                      },
+                      child: Text(
+                        DateFormat('yyyy-MM-dd').format(pickedDate),
+                        style: TextStyle(color: palette.textPrimary),
+                      ),
+                    ),
+                    RadioListTile<bool>(
+                      value: true,
+                      groupValue: isWorkDay,
+                      activeColor: palette.gold,
+                      title: Text(
+                        'يوم عمل',
+                        style: TextStyle(color: palette.textPrimary),
+                      ),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setDialogState(() => isWorkDay = value);
+                      },
+                    ),
+                    RadioListTile<bool>(
+                      value: false,
+                      groupValue: isWorkDay,
+                      activeColor: palette.gold,
+                      title: Text(
+                        'إجازة',
+                        style: TextStyle(color: palette.textPrimary),
+                      ),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setDialogState(() => isWorkDay = value);
+                      },
+                    ),
+                    if (isWorkDay)
+                      TextField(
+                        controller: ordersController,
+                        keyboardType: TextInputType.number,
+                        style: TextStyle(color: palette.textPrimary),
+                        decoration: glassInputDecoration(
+                          palette,
+                          'عدد الطلبات',
+                        ),
+                      ),
+                    if (isToday)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Text(
+                          editingRecord != null
+                              ? 'أنت تعدل سجل اليوم الحالي.'
+                              : shiftOpen
+                                  ? 'توجد وردية مفتوحة. أضف الطلبات من شاشة الوردية.'
+                                  : 'لم تبدأ وردية اليوم بعد.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: AppColors.danger,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('إلغاء'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    if (isToday && editingRecord == null) {
+                      _showSnackBar(
+                        shiftOpen
+                            ? 'أضف الطلبات من شاشة الوردية الحالية'
+                            : 'ابدأ وردية اليوم أولًا',
+                      );
+                      return;
+                    }
+
+                    int orders = 0;
+
+                    if (isWorkDay) {
+                      final parsed = int.tryParse(
+                        ordersController.text.trim(),
+                      );
+
+                      if (parsed == null || parsed < 0) {
+                        _showSnackBar('أدخل عدد طلبات صحيح');
+                        return;
+                      }
+
+                      orders = parsed;
+                    }
+
+                    Navigator.pop(
+                      dialogContext,
+                      DailyRecord(
+                        date: dateOnly(pickedDate),
+                        isWorkDay: isWorkDay,
+                        ordersCount: orders,
+                        orderPrice: editingRecord?.orderPrice ??
+                            SettingsData.orderPrice,
+                      ),
+                    );
+                  },
+                  child: const Text('حفظ'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result == null) return;
+
+    final existing = _recordForDate(result.date);
+
+    if (existing != null && existing != editingRecord) {
+      final confirmed = await _confirmDialog(
+        title: 'استبدال سجل موجود',
+        message: 'يوجد سجل لهذا التاريخ. هل تريد استبداله؟',
+        confirmText: 'استبدال',
+      );
+
+      if (!confirmed) return;
+    }
+
+    setState(() => _upsertRecord(result));
+    await _saveRecords();
+
+    _showSnackBar(
+      editingRecord == null ? 'تمت إضافة اليوم' : 'تم تعديل اليوم',
+    );
+  }
+
+  // ============================================================
+  // إضافة الأيام بالجملة
+  // ============================================================
+
+  Future<void> openBulkAddDaysDialog() async {
+    DateTime startDate = dateOnly(DateTime.now());
+    final controller = TextEditingController();
+
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final lines = controller.text
+                .split('\n')
+                .map((line) => line.trim())
+                .where((line) => line.isNotEmpty)
+                .toList();
+
+            int futureCount = 0;
+            int invalidCount = 0;
+
+            for (int i = 0; i < lines.length; i++) {
+              final currentDate = dateOnly(
+                startDate.add(Duration(days: i)),
+              );
+
+              if (_isFutureDate(currentDate)) {
+                futureCount++;
+                continue;
+              }
+
+              final value = lines[i].toLowerCase();
+              final holiday =
+                  value == 'إجازة' || value == 'اجازة';
+
+              if (!holiday) {
+                final orders = int.tryParse(value);
+                if (orders == null || orders < 0) {
+                  invalidCount++;
+                }
+              }
+            }
+
+            return AlertDialog(
+              backgroundColor: palette.dialogBg,
+              title: Text(
+                'إضافة أيام بالجملة',
+                style: TextStyle(
+                  color: palette.textPrimary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    OutlinedButton(
+                      onPressed: () async {
+                        final result = await _pickDate(
+                          initialDate: startDate,
+                        );
+
+                        if (result != null) {
+                          setDialogState(() {
+                            startDate = dateOnly(result);
+                          });
+                        }
+                      },
+                      child: Text(
+                        DateFormat('yyyy-MM-dd').format(startDate),
+                        style: TextStyle(color: palette.textPrimary),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'اكتب عدد الطلبات في كل سطر، أو اكتب إجازة:',
+                      style: TextStyle(
+                        color: palette.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: controller,
+                      maxLines: 8,
+                      onChanged: (_) => setDialogState(() {}),
+                      style: TextStyle(color: palette.textPrimary),
+                      decoration: glassInputDecoration(
+                        palette,
+                        'مثال:\n10\n8\nإجازة\n12',
+                      ),
+                    ),
+                    if (futureCount > 0 || invalidCount > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Text(
+                          [
+                            if (futureCount > 0)
+                              'سيتم تجاهل $futureCount يوم مستقبلي',
+                            if (invalidCount > 0)
+                              'سيتم تجاهل $invalidCount سطر غير صحيح',
+                          ].join('\n'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: AppColors.danger,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('إلغاء'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: const Text('معالجة'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (accepted != true) return;
+
+    final lines = controller.text
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList();
+
+    if (lines.isEmpty) {
+      _showSnackBar('اكتب البيانات أولًا');
+      return;
+    }
+
+    final today = dateOnly(DateTime.now());
+    final newRecords = <DailyRecord>[];
+
+    int skipped = 0;
+    int replaced = 0;
+
+    for (int i = 0; i < lines.length; i++) {
+      final currentDate = dateOnly(
+        startDate.add(Duration(days: i)),
+      );
+
+      if (_isFutureDate(currentDate) ||
+          isSameDay(currentDate, today)) {
+        skipped++;
+        continue;
+      }
+
+      final value = lines[i].toLowerCase();
+      final holiday =
+          value == 'إجازة' || value == 'اجازة';
+
+      DailyRecord? record;
+
+      if (holiday) {
+        record = DailyRecord(
+          date: currentDate,
+          isWorkDay: false,
+          ordersCount: 0,
+          orderPrice: SettingsData.orderPrice,
+        );
+      } else {
+        final orders = int.tryParse(value);
+
+        if (orders == null || orders < 0) {
+          skipped++;
+          continue;
+        }
+
+        record = DailyRecord(
+          date: currentDate,
+          isWorkDay: true,
+          ordersCount: orders,
+          orderPrice: SettingsData.orderPrice,
+        );
+      }
+
+      if (_recordForDate(currentDate) != null) {
+        replaced++;
+      }
+
+      newRecords.add(record);
+    }
+
+    if (newRecords.isEmpty) {
+      _showSnackBar('لم تتم إضافة أي سجل');
+      return;
+    }
+
+    if (replaced > 0) {
+      final confirmed = await _confirmDialog(
+        title: 'استبدال سجلات موجودة',
+        message:
+            'يوجد $replaced سجل مسجل مسبقًا. هل تريد استبدالها؟',
+        confirmText: 'استبدال',
+      );
+
+      if (!confirmed) return;
+    }
+
+    setState(() {
+      for (final record in newRecords) {
+        _upsertRecord(record);
+      }
+    });
+
+    await _saveRecords();
+
+    _showSnackBar(
+      'تمت إضافة ${newRecords.length} يوم، وتجاوز $skipped سطر',
+    );
+  }
+
+  // ============================================================
+  // قائمة التعديل والحذف
+  // ============================================================
+
+  Future<String?> _actionsMenu(String title) {
+    return showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: palette.dialogBg,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    color: palette.textPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: Icon(Icons.edit, color: palette.gold),
+                title: Text(
+                  'تعديل',
+                  style: TextStyle(color: palette.textPrimary),
+                ),
+                onTap: () => Navigator.pop(sheetContext, 'edit'),
+              ),
+              ListTile(
+                leading: const Icon(
+                  Icons.delete,
+                  color: AppColors.danger,
+                ),
+                title: Text(
+                  'حذف',
+                  style: TextStyle(color: palette.textPrimary),
+                ),
+                onTap: () => Navigator.pop(sheetContext, 'delete'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _recordActions(DailyRecord record) async {
+    final action = await _actionsMenu(
+      'سجل ${DateFormat('yyyy-MM-dd').format(record.date)}',
+    );
+
+    if (action == 'edit') {
+      await openAddPastDayDialog(editingRecord: record);
+    } else if (action == 'delete') {
+      final confirmed = await _confirmDialog(
+        title: 'حذف السجل',
+        message: 'هل تريد حذف سجل هذا اليوم؟',
+        confirmText: 'حذف',
+      );
+
+      if (!confirmed) return;
+
+      setState(() => records.remove(record));
+      await _saveRecords();
+      _showSnackBar('تم حذف السجل');
+    }
+  }
+
+  Future<void> _gasActions(GasEntry entry) async {
+    final action = await _actionsMenu(
+      'بنزين ${DateFormat('yyyy-MM-dd').format(entry.date)}',
+    );
+
+    if (action == 'edit') {
+      await openAddGasDialog(editingEntry: entry);
+    } else if (action == 'delete') {
+      final confirmed = await _confirmDialog(
+        title: 'حذف البنزين',
+        message: 'هل تريد حذف عملية البنزين؟',
+        confirmText: 'حذف',
+      );
+
+      if (!confirmed) return;
+
+      setState(() => gasEntries.remove(entry));
+      await _saveGasEntries();
+      _showSnackBar('تم حذف عملية البنزين');
+    }
+  }
+
+  Future<void> _expenseActions(OtherExpense expense) async {
+    final action = await _actionsMenu(
+      'مصروف ${DateFormat('yyyy-MM-dd').format(expense.date)}',
+    );
+
+    if (action == 'edit') {
+      await openAddOtherExpenseDialog(
+        editingExpense: expense,
+      );
+    } else if (action == 'delete') {
+      final confirmed = await _confirmDialog(
+        title: 'حذف المصروف',
+        message: 'هل تريد حذف المصروف؟',
+        confirmText: 'حذف',
+      );
+
+      if (!confirmed) return;
+
+      setState(() => otherExpenses.remove(expense));
+      await _saveOtherExpenses();
+      _showSnackBar('تم حذف المصروف');
+    }
+  }
+
+  // ============================================================
+  // النسخة الاحتياطية والاستعادة
+  // ============================================================
+
+  Map<String, dynamic> _backupData() {
+    return {
+      'version': 3,
+      'exportedAt': DateTime.now().toIso8601String(),
+      'records': records.map((record) => record.toJson()).toList(),
+      'monthlyRents':
+          monthlyRents.map((rent) => rent.toJson()).toList(),
+      'gasEntries':
+          gasEntries.map((entry) => entry.toJson()).toList(),
+      'otherExpenses':
+          otherExpenses.map((expense) => expense.toJson()).toList(),
+      'settings': {
+        'orderPrice': SettingsData.orderPrice,
+        'monthlyRent': SettingsData.monthlyRent,
+        'dailyTarget': SettingsData.dailyTarget,
+        'monthlyGoal': SettingsData.monthlyGoal,
+      },
+      'activeShift': shiftOpen && shiftStartDate != null
+          ? {
+              'shiftStartDate':
+                  shiftStartDate!.toIso8601String(),
+              'ordersCount': todayOrders,
+              'orderPrice': activeOrderPrice,
+            }
+          : null,
+    };
+  }
+
+  Future<void> _exportBackup() async {
+    final text = jsonEncode(_backupData());
+
+    await Clipboard.setData(
+      ClipboardData(text: text),
+    );
+
+    _showSnackBar(
+      'تم نسخ النسخة الاحتياطية إلى الحافظة ✅',
+    );
+  }
+
+  Future<bool> _importBackup(String text) async {
+    try {
+      final decoded = jsonDecode(text);
+
+      if (decoded is! Map) {
+        return false;
+      }
+
+      final data = Map<String, dynamic>.from(decoded);
+
+      if (data['records'] is! List ||
+          data['gasEntries'] is! List) {
+        return false;
+      }
+
+      final importedRecords =
+          (data['records'] as List).map((item) {
+        return DailyRecord.fromJson(
+          Map<String, dynamic>.from(item),
+        );
+      }).toList();
+
+      final importedGasEntries =
+          (data['gasEntries'] as List).map((item) {
+        return GasEntry.fromJson(
+          Map<String, dynamic>.from(item),
+        );
+      }).toList();
+
+      final importedOtherExpenses =
+          (data['otherExpenses'] as List? ?? []).map((item) {
+        return OtherExpense.fromJson(
+          Map<String, dynamic>.from(item),
+        );
+      }).toList();
+
+      final importedRents =
+          (data['monthlyRents'] as List? ?? []).map((item) {
+        return MonthlyRentEntry.fromJson(
+          Map<String, dynamic>.from(item),
+        );
+      }).toList();
+
+      final settingsRaw = data['settings'];
+
+      if (settingsRaw is! Map) {
+        return false;
+      }
+
+      final settings =
+          Map<String, dynamic>.from(settingsRaw);
+
+      final importedOrderPrice =
+          (settings['orderPrice'] as num?)?.toDouble();
+
+      final importedMonthlyRent =
+          (settings['monthlyRent'] as num?)?.toDouble() ??
+          SettingsData.monthlyRent;
+
+      final importedDailyTarget =
+          (settings['dailyTarget'] as num?)?.toInt();
+
+      final importedMonthlyGoal =
+          (settings['monthlyGoal'] as num?)?.toInt();
+
+      if (importedOrderPrice == null ||
+          importedDailyTarget == null ||
+          importedMonthlyGoal == null) {
+        return false;
+      }
+
+      final confirmed = await _confirmDialog(
+        title: 'تأكيد الاستعادة',
+        message:
+            'سيتم استبدال جميع البيانات الحالية بالنسخة الاحتياطية. '
+            'هل تريد المتابعة؟',
+        confirmText: 'استعادة',
+      );
+
+      if (!confirmed) {
+        return false;
+      }
+
+      setState(() {
+        records
+          ..clear()
+          ..addAll(importedRecords);
+
+        gasEntries
+          ..clear()
+          ..addAll(importedGasEntries);
+
+        otherExpenses
+          ..clear()
+          ..addAll(importedOtherExpenses);
+
+        monthlyRents
+          ..clear()
+          ..addAll(importedRents);
+
+        SettingsData.orderPrice =
+            importedOrderPrice;
+
+        SettingsData.monthlyRent =
+            importedMonthlyRent;
+
+        SettingsData.dailyTarget =
+            importedDailyTarget;
+
+        SettingsData.monthlyGoal =
+            importedMonthlyGoal;
+
+        shiftOpen = false;
+        shiftStartDate = null;
+        todayOrders = 0;
+        activeOrderPrice = SettingsData.orderPrice;
+
+        final activeRaw = data['activeShift'];
+
+        if (activeRaw is Map) {
+          final active =
+              Map<String, dynamic>.from(activeRaw);
+
+          final start = active['shiftStartDate'];
+
+          if (start != null) {
+            shiftOpen = true;
+            shiftStartDate =
+                DateTime.parse(start.toString());
+
+            todayOrders =
+                (active['ordersCount'] as num?)?.toInt() ?? 0;
+
+            activeOrderPrice =
+                (active['orderPrice'] as num?)?.toDouble() ??
+                    SettingsData.orderPrice;
+          }
+        }
+      });
+
+      await _saveAllData();
+
+      if (shiftOpen) {
+        await _saveActiveShift();
+      } else {
+        await _clearActiveShift();
+      }
+
+      _showSnackBar(
+        'تمت استعادة النسخة الاحتياطية بنجاح ✅',
+      );
+
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> openBackupDialog() async {
+    final restoreController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: palette.dialogBg,
+          title: Text(
+            'نسخة احتياطية',
+            style: TextStyle(
+              color: palette.textPrimary,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment:
+                  CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'انسخ بياناتك كنص واحفظه في مكان آمن.',
+                  style: TextStyle(
+                    color: palette.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    await _exportBackup();
+
+                    if (dialogContext.mounted) {
+                      Navigator.pop(dialogContext);
+                    }
+                  },
+                  icon: const Icon(Icons.copy),
+                  label: const Text(
+                    'نسخ نسخة احتياطية',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Divider(color: palette.cardBorder),
+                const SizedBox(height: 8),
+                Text(
+                  'لاستعادة نسخة سابقة، الصق النص هنا:',
+                  style: TextStyle(
+                    color: palette.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: restoreController,
+                  maxLines: 5,
+                  style: TextStyle(
+                    color: palette.textPrimary,
+                    fontSize: 11,
+                  ),
+                  decoration: glassInputDecoration(
+                    palette,
+                    'الصق النسخة الاحتياطية',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    final success = await _importBackup(
+                      restoreController.text.trim(),
+                    );
+
+                    if (!success) {
+                      _showSnackBar(
+                        'النص غير صحيح أو لم تتم الاستعادة',
+                      );
+                    }
+
+                    if (dialogContext.mounted) {
+                      Navigator.pop(dialogContext);
+                    }
+                  },
+                  icon: const Icon(Icons.restore),
+                  label: const Text(
+                    'استعادة النسخة',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('إغلاق'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ============================================================
+  // التوقعات
+  // ============================================================
+
+  String _smartProjection() {
+    final now = DateTime.now();
+
+    final isCurrentMonth =
+        selectedMonth == now.month &&
+        selectedYear == now.year;
+
+    if (!isCurrentMonth || monthlyOrders <= 0) {
+      return '';
+    }
+
+    final daysPassed = now.day;
+    final daysInMonth = DateTime(
+      selectedYear,
+      selectedMonth + 1,
+      0,
+    ).day;
+
+    final remainingDays = daysInMonth - daysPassed;
+    final averageOrders = monthlyOrders / daysPassed;
+    final projectedOrders =
+        (averageOrders * daysInMonth).round();
+
+    final projectedGross =
+        projectedOrders * SettingsData.orderPrice;
+
+    final projectedGas =
+        (monthlyCompanyGas + monthlyPersonalGas) *
+            daysInMonth /
+            daysPassed;
+
+    final projectedOther =
+        monthlyOtherExpenses *
+            daysInMonth /
+            daysPassed;
+
+    final projectedNet = projectedGross -
+        monthlyRent -
+        projectedGas -
+        projectedOther;
+
+    String text =
+        'بمعدلك الحالي ${averageOrders.toStringAsFixed(1)} '
+        'طلب/يوم، التوقع التقريبي هو $projectedOrders طلب '
+        'وصافي تقريبي ${projectedNet.toStringAsFixed(0)} ر.س '
+        'بنهاية الشهر.';
+
+    if (SettingsData.monthlyGoal > 0) {
+      final remaining =
+          SettingsData.monthlyGoal - monthlyOrders;
+
+      if (remaining > 0 && remainingDays > 0) {
+        final needed = remaining / remainingDays;
+
+        text +=
+            '\n\n🎯 تحتاج $remaining طلب إضافي خلال '
+            '$remainingDays يوم، أي '
+            '${needed.toStringAsFixed(1)} طلب يوميًا.';
+      } else if (remaining <= 0) {
+        text += '\n\n🎉 مبروك! لقد تجاوزت هدف الشهر.';
+      }
+    }
+
+    return text;
+  }
+
+  // ============================================================
+  // توليد التقرير والمشاركة
+  // ============================================================
+
+  Future<Uint8List> _generateReportBytes() async {
+    int previousMonth = selectedMonth - 1;
+    int previousYear = selectedYear;
+
+    if (previousMonth < 1) {
+      previousMonth = 12;
+      previousYear--;
+    }
+
+    final current = _statsFor(
+      selectedYear,
+      selectedMonth,
+    );
+
+    final previous = _statsFor(
+      previousYear,
+      previousMonth,
+    );
+
+    final daily = _dailyGrossSeries(
+      selectedYear,
+      selectedMonth,
+    );
+
+    final daysInMonth = DateTime(
+      selectedYear,
+      selectedMonth + 1,
+      0,
+    ).day;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+
+    const size = Size(1080, 2050);
+    const exportScale = 2.5;
+
+    final painter = _ReportPainter(
+      monthName: monthNames[selectedMonth],
+      previousMonthName: monthNames[previousMonth],
+      year: selectedYear,
+      current: current,
+      previous: previous,
+      dailySeries: daily,
+      daysInMonth: daysInMonth,
+      isDark: isDarkMode,
+      logoImage: logoImage,
+    );
+
+    canvas.scale(exportScale);
+    painter.paint(canvas, size);
+
+    final picture = recorder.endRecording();
+
+    final image = await picture.toImage(
+      (size.width * exportScale).toInt(),
+      (size.height * exportScale).toInt(),
+    );
+
+    final byteData = await image.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
+
+    if (byteData == null) {
+      throw Exception('تعذر إنشاء صورة التقرير');
+    }
+
+    return byteData.buffer.asUint8List();
+  }
+
+  Future<void> shareMonthlyReport() async {
+    if (isGeneratingReport) return;
+
+    setState(() {
+      isGeneratingReport = true;
+    });
+
+    try {
+      final bytes = await _generateReportBytes();
+
+      await Share.shareXFiles(
+        [
+          XFile.fromData(
+            bytes,
+            name:
+                'monthly_report_${selectedYear}_${selectedMonth}.png',
+            mimeType: 'image/png',
+          ),
+        ],
+        subject:
+            'تقرير شهر ${monthNames[selectedMonth]} $selectedYear',
+      );
+    } catch (_) {
+      _showSnackBar('حدث خطأ أثناء إنشاء التقرير');
+    } finally {
+      if (mounted) {
+        setState(() {
+          isGeneratingReport = false;
+        });
+      }
+    }
+  }
+
+  Future<void> saveReportToGallery() async {
+    await shareMonthlyReport();
+  }
+
+  // ============================================================
+  // بناء الواجهة الرئيسية
+  // ============================================================
+
+  @override
+  Widget build(BuildContext context) {
+    final p = palette;
+
+    if (isLoading) {
+      return Scaffold(
+        backgroundColor: p.bgGradient.first,
+        body: Center(
+          child: CircularProgressIndicator(color: p.gold),
+        ),
+      );
+    }
+
+    final tabs = [
+      _TodayTab(
+        palette: p,
+        shiftOpen: shiftOpen,
+        todayOrders: todayOrders,
+        shiftStartDate: shiftStartDate,
+        onIncrement: incrementOrders,
+        onDecrement: decrementOrders,
+        onStart: startNewShift,
+        onFinish: finishWorkDay,
+        onHoliday: markHoliday,
+        onEditDate: editShiftDate,
+      ),
+      _StatsTab(
+        palette: p,
+        selectedMonth: selectedMonth,
+        selectedYear: selectedYear,
+        monthNames: monthNames,
+        monthlyOrders: monthlyOrders,
+        monthlyGross: monthlyGross,
+        monthlyRent: monthlyRent,
+        monthlyCompanyGas: monthlyCompanyGas,
+        monthlyPersonalGas: monthlyPersonalGas,
+        monthlyOtherExpenses: monthlyOtherExpenses,
+        monthlyNet: monthlyNet,
+        previousMonthNet: previousMonthNet,
+        hasPreviousMonthData: hasPreviousMonthData,
+        projection: _smartProjection(),
+        onMonthChanged: changeMonth,
+        onYearShift: changeYear,
+        onEditRent: editSelectedMonthRent,
+        onShareReport: shareMonthlyReport,
+        onSaveReport: saveReportToGallery,
+      ),
+      _HistoryTab(
+        palette: p,
+        records: filteredRecords,
+        gasEntries: filteredGasEntries,
+        otherExpenses: filteredOtherExpenses,
+        onAddPastDay: () => openAddPastDayDialog(),
+        onAddBulkDays: openBulkAddDaysDialog,
+        onRecordLongPress: _recordActions,
+        onGasLongPress: _gasActions,
+        onOtherLongPress: _expenseActions,
+      ),
+    ];
+
+    return Directionality(
+      textDirection: ui.TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: p.appBarBg,
+          title: Text(
+            'كشف الطلبات',
+            style: TextStyle(color: p.textPrimary),
+          ),
+          iconTheme: IconThemeData(color: p.textPrimary),
+          actions: [
+            IconButton(
+              tooltip: 'تبديل الوضع',
+              icon: Icon(
+                isDarkMode
+                    ? Icons.light_mode
+                    : Icons.dark_mode,
+              ),
+              onPressed: toggleDarkMode,
+            ),
+            PopupMenuButton<String>(
+              color: p.dialogBg,
+              icon: Icon(
+                Icons.more_vert,
+                color: p.textPrimary,
+              ),
+              onSelected: (value) {
+                switch (value) {
+                  case 'gas':
+                    openAddGasDialog();
+                    break;
+                  case 'expense':
+                    openAddOtherExpenseDialog();
+                    break;
+                  case 'backup':
+                    openBackupDialog();
+                    break;
+                  case 'settings':
+                    openSettingsDialog();
+                    break;
+                }
+              },
+              itemBuilder: (_) => [
+                PopupMenuItem(
+                  value: 'gas',
+                  child: Text(
+                    'إضافة بنزين',
+                    style: TextStyle(color: p.textPrimary),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'expense',
+                  child: Text(
+                    'إضافة مصروف آخر',
+                    style: TextStyle(color: p.textPrimary),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'backup',
+                  child: Text(
+                    'نسخة احتياطية',
+                    style: TextStyle(color: p.textPrimary),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'settings',
+                  child: Text(
+                    'الإعدادات',
+                    style: TextStyle(color: p.textPrimary),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: p.bgGradient,
+            ),
+          ),
+          child: SafeArea(
+            child: IndexedStack(
+              index: currentTab,
+              children: tabs,
+            ),
+          ),
+        ),
+        bottomNavigationBar: NavigationBar(
+          backgroundColor: p.navBg,
+          selectedIndex: currentTab,
+          onDestinationSelected: (value) {
+            setState(() {
+              currentTab = value;
+            });
+          },
+          indicatorColor: p.gold.withOpacity(.25),
+          destinations: [
+            NavigationDestination(
+              icon: Icon(
+                Icons.today_outlined,
+                color: p.textSecondary,
+              ),
+              selectedIcon: Icon(
+                Icons.today,
+                color: p.gold,
+              ),
+              label: 'اليوم',
+            ),
+            NavigationDestination(
+              icon: Icon(
+                Icons.bar_chart_outlined,
+                color: p.textSecondary,
+              ),
+              selectedIcon: Icon(
+                Icons.bar_chart,
+                color: p.gold,
+              ),
+              label: 'الإحصائيات',
+            ),
+            NavigationDestination(
+              icon: Icon(
+                Icons.history_outlined,
+                color: p.textSecondary,
+              ),
+              selectedIcon: Icon(
+                Icons.history,
+                color: p.gold,
+              ),
+              label: 'السجل',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================
+// تبويب اليوم
+// ============================================================
+
+class _TodayTab extends StatelessWidget {
+  final Palette palette;
+  final bool shiftOpen;
+  final int todayOrders;
+  final DateTime? shiftStartDate;
+  final VoidCallback onIncrement;
+  final VoidCallback onDecrement;
+  final VoidCallback onStart;
+  final VoidCallback onFinish;
+  final VoidCallback onHoliday;
+  final VoidCallback onEditDate;
+
+  const _TodayTab({
+    required this.palette,
+    required this.shiftOpen,
+    required this.todayOrders,
+    required this.shiftStartDate,
+    required this.onIncrement,
+    required this.onDecrement,
+    required this.onStart,
+    required this.onFinish,
+    required this.onHoliday,
+    required this.onEditDate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = palette;
+
+    final target = SettingsData.dailyTarget;
+    final double progress = target > 0
+        ? (todayOrders / target)
+            .clamp(0.0, 1.0)
+            .toDouble()
+        : 0.0;
+
+    final displayDate = shiftOpen
+        ? (shiftStartDate ?? DateTime.now())
+        : DateTime.now();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(
+        16,
+        16,
+        16,
+        24,
+      ),
+      child: GlassCard(
+        palette: p,
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  DateFormat('yyyy-MM-dd')
+                      .format(displayDate),
+                  style: TextStyle(
+                    color: p.textSecondary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (shiftOpen) ...[
+                  const SizedBox(width: 6),
+                  InkWell(
+                    onTap: onEditDate,
+                    child: Icon(
+                      Icons.edit,
+                      size: 16,
+                      color: p.textMuted,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 6,
+              ),
+              decoration: BoxDecoration(
+                color: shiftOpen
+                    ? AppColors.success.withOpacity(.16)
+                    : p.textMuted.withOpacity(.14),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: shiftOpen
+                      ? AppColors.success.withOpacity(.5)
+                      : p.textMuted.withOpacity(.4),
+                ),
+              ),
+              child: Text(
+                shiftOpen
+                    ? 'الوردية مفتوحة'
+                    : 'لا توجد وردية مفتوحة',
+                style: TextStyle(
+                  color: shiftOpen
+                      ? AppColors.success
+                      : p.textMuted,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            const SizedBox(height: 26),
+            GestureDetector(
+              onTap: onIncrement,
+              onLongPress: onDecrement,
+              child: SizedBox(
+                width: 190,
+                height: 190,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      value: progress,
+                      strokeWidth: 12,
+                      backgroundColor: p.cardBorder,
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(p.gold),
+                    ),
+                    Column(
+                      mainAxisAlignment:
+                          MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '$todayOrders',
+                          style: TextStyle(
+                            color: p.textPrimary,
+                            fontSize: 48,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'من $target طلب',
+                          style: TextStyle(
+                            color: p.textSecondary,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'ضغط عادي للإضافة - ضغط مطول للإنقاص',
+              style: TextStyle(
+                color: p.textMuted,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 24),
+            if (shiftOpen)
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: onFinish,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: p.gold,
+                    foregroundColor: p.isDark
+                        ? const Color(0xFF0B1F3A)
+                        : Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text(
+                    'حفظ وإنهاء الوردية',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+              )
+            else ...[
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: onStart,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: p.gold,
+                    foregroundColor: p.isDark
+                        ? const Color(0xFF0B1F3A)
+                        : Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text(
+                    'بدء وردية جديدة',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: OutlinedButton(
+                  onPressed: onHoliday,
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(
+                      color: AppColors.danger,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text(
+                    'تسجيل اليوم كإجازة',
+                    style: TextStyle(
+                      color: AppColors.danger,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================
+// عناصر الإحصائيات
+// ============================================================
+
+class _StatRow extends StatelessWidget {
+  final Palette palette;
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _StatRow({
+    required this.palette,
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 17,
+            color: palette.textMuted,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: palette.textSecondary,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              color: palette.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegendDot extends StatelessWidget {
+  final Palette palette;
+  final Color color;
+  final String label;
+
+  const _LegendDot({
+    required this.palette,
+    required this.color,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: TextStyle(
+            color: palette.textSecondary,
+            fontSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ============================================================
+// تبويب الإحصائيات
+// ============================================================
+
+class _StatsTab extends StatelessWidget {
+  final Palette palette;
+  final int selectedMonth;
+  final int selectedYear;
+  final List<String> monthNames;
+
+  final int monthlyOrders;
+  final double monthlyGross;
+  final double monthlyRent;
+  final double monthlyCompanyGas;
+  final double monthlyPersonalGas;
+  final double monthlyOtherExpenses;
+  final double monthlyNet;
+  final double previousMonthNet;
+
+  final bool hasPreviousMonthData;
+  final String projection;
+
+  final ValueChanged<int> onMonthChanged;
+  final ValueChanged<int> onYearShift;
+  final VoidCallback onEditRent;
+  final VoidCallback onShareReport;
+  final VoidCallback onSaveReport;
+
+  const _StatsTab({
+    required this.palette,
+    required this.selectedMonth,
+    required this.selectedYear,
+    required this.monthNames,
+    required this.monthlyOrders,
+    required this.monthlyGross,
+    required this.monthlyRent,
+    required this.monthlyCompanyGas,
+    required this.monthlyPersonalGas,
+    required this.monthlyOtherExpenses,
+    required this.monthlyNet,
+    required this.previousMonthNet,
+    required this.hasPreviousMonthData,
+    required this.projection,
+    required this.onMonthChanged,
+    required this.onYearShift,
+    required this.onEditRent,
+    required this.onShareReport,
+    required this.onSaveReport,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = palette;
+    final netColor =
+        monthlyNet >= 0 ? AppColors.success : AppColors.danger;
+
+    final totalExpenses = monthlyRent +
+        monthlyCompanyGas +
+        monthlyPersonalGas +
+        monthlyOtherExpenses;
+
+    final hasGoal = SettingsData.monthlyGoal > 0;
+
+    final double goalProgress = hasGoal
+        ? (monthlyOrders / SettingsData.monthlyGoal)
+            .clamp(0.0, 1.0)
+            .toDouble()
+        : 0.0;
+
+    final now = DateTime.now();
+
+    final isCurrentMonth =
+        selectedMonth == now.month &&
+        selectedYear == now.year;
+
+    final difference = monthlyNet - previousMonthNet;
+
+    String comparisonText;
+
+    if (!hasPreviousMonthData) {
+      comparisonText = 'لا توجد بيانات للشهر السابق';
+    } else if (previousMonthNet.abs() < 0.01) {
+      comparisonText = monthlyNet.abs() < 0.01
+          ? 'لا يوجد تغير'
+          : 'لا يمكن حساب النسبة';
+    } else {
+      final percent =
+          difference / previousMonthNet.abs() * 100;
+
+      comparisonText =
+          '${percent >= 0 ? '+' : ''}${percent.toStringAsFixed(1)}%';
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(
+        16,
+        16,
+        16,
+        24,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          GlassCard(
+            palette: p,
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment:
+                      MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      isCurrentMonth
+                          ? 'إحصائيات هذا الشهر'
+                          : 'إحصائيات الشهر',
+                      style: TextStyle(
+                        color: p.textPrimary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints:
+                              const BoxConstraints(),
+                          icon: Icon(
+                            Icons.chevron_right,
+                            color: p.textSecondary,
+                          ),
+                          onPressed: () => onYearShift(-1),
+                        ),
+                        Text(
+                          '$selectedYear',
+                          style: TextStyle(
+                            color: p.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints:
+                              const BoxConstraints(),
+                          icon: Icon(
+                            Icons.chevron_left,
+                            color: p.textSecondary,
+                          ),
+                          onPressed: () => onYearShift(1),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment:
+                      MainAxisAlignment.spaceBetween,
+                  children: [
+                    DropdownButton<int>(
+                      value: selectedMonth,
+                      dropdownColor: p.dialogBg,
+                      style: TextStyle(
+                        color: p.textPrimary,
+                      ),
+                      iconEnabledColor:
+                          p.textSecondary,
+                      underline: Container(
+                        height: 1,
+                        color: p.cardBorder,
+                      ),
+                      items: List.generate(
+                        12,
+                        (index) => index + 1,
+                      ).map(
+                        (month) {
+                          return DropdownMenuItem<int>(
+                            value: month,
+                            child: Text(
+                              monthNames[month],
+                            ),
+                          );
+                        },
+                      ).toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          onMonthChanged(value);
+                        }
+                      },
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: onEditRent,
+                      icon: Icon(
+                        Icons.edit,
+                        size: 16,
+                        color: p.gold,
+                      ),
+                      label: Text(
+                        'إيجار الشهر',
+                        style: TextStyle(
+                          color: p.gold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                Divider(
+                  color: p.cardBorder,
+                  height: 26,
+                ),
+                _StatRow(
+                  palette: p,
+                  icon: Icons.local_shipping,
+                  label: 'إجمالي الطلبات',
+                  value: '$monthlyOrders طلب',
+                ),
+                _StatRow(
+                  palette: p,
+                  icon: Icons.payments,
+                  label: 'إجمالي الإيرادات',
+                  value: money(monthlyGross),
+                ),
+                _StatRow(
+                  palette: p,
+                  icon: Icons.directions_car,
+                  label: 'إيجار السيارة الشهري',
+                  value: money(monthlyRent),
+                ),
+                _StatRow(
+                  palette: p,
+                  icon: Icons.business,
+                  label: 'بنزين الشركة',
+                  value: money(monthlyCompanyGas),
+                ),
+                _StatRow(
+                  palette: p,
+                  icon: Icons.local_gas_station,
+                  label: 'بنزين الجيب',
+                  value: money(monthlyPersonalGas),
+                ),
+                if (monthlyOtherExpenses > 0)
+                  _StatRow(
+                    palette: p,
+                    icon: Icons.receipt_long,
+                    label: 'مصاريف أخرى',
+                    value: money(monthlyOtherExpenses),
+                  ),
+                Divider(
+                  color: p.cardBorder,
+                  height: 26,
+                ),
+                Row(
+                  mainAxisAlignment:
+                      MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'إجمالي المصروفات',
+                      style: TextStyle(
+                        color: p.textPrimary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      money(totalExpenses),
+                      style: const TextStyle(
+                        color: AppColors.danger,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment:
+                      MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'صافي الدخل',
+                      style: TextStyle(
+                        color: p.textPrimary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                    Text(
+                      money(monthlyNet),
+                      style: TextStyle(
+                        color: netColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          if (hasGoal)
+            GlassCard(
+              palette: p,
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.stretch,
+                children: [
+                  sectionHeader(
+                    p,
+                    Icons.emoji_events,
+                    'هدف الشهر',
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    mainAxisAlignment:
+                        MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'الهدف: ${SettingsData.monthlyGoal} طلب',
+                        style: TextStyle(
+                          color: p.textSecondary,
+                        ),
+                      ),
+                      Text(
+                        '$monthlyOrders/${SettingsData.monthlyGoal}',
+                        style: TextStyle(
+                          color: p.textPrimary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: LinearProgressIndicator(
+                      value: goalProgress,
+                      minHeight: 14,
+                      backgroundColor: p.cardBorder,
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(
+                        goalProgress >= 1
+                            ? AppColors.success
+                            : p.gold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: Text(
+                      '${(goalProgress * 100).toStringAsFixed(0)}% من الهدف',
+                      style: TextStyle(
+                        color: goalProgress >= 1
+                            ? AppColors.success
+                            : p.textSecondary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          if (projection.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            GlassCard(
+              palette: p,
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.stretch,
+                children: [
+                  sectionHeader(
+                    p,
+                    Icons.auto_graph,
+                    'التوقعات',
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.otherExpense
+                          .withOpacity(.10),
+                      borderRadius:
+                          BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.otherExpense
+                            .withOpacity(.30),
+                      ),
+                    ),
+                    child: Text(
+                      projection,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: p.textPrimary,
+                        height: 1.6,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          if (hasPreviousMonthData) ...[
+            const SizedBox(height: 16),
+            GlassCard(
+              palette: p,
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.stretch,
+                children: [
+                  sectionHeader(
+                    p,
+                    Icons.trending_up,
+                    'مقارنة بالشهر السابق',
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    mainAxisAlignment:
+                        MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'الشهر السابق',
+                            style: TextStyle(
+                              color: p.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                          Text(
+                            money(previousMonthNet),
+                            style: TextStyle(
+                              color: p.textSecondary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Icon(
+                        difference >= 0
+                            ? Icons.arrow_upward
+                            : Icons.arrow_downward,
+                        color: difference >= 0
+                            ? AppColors.success
+                            : AppColors.danger,
+                        size: 26,
+                      ),
+                      Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            'هذا الشهر',
+                            style: TextStyle(
+                              color: p.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                          Text(
+                            money(monthlyNet),
+                            style: TextStyle(
+                              color: netColor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Center(
+                    child: Text(
+                      '${difference >= 0 ? '+' : ''}'
+                      '${difference.toStringAsFixed(1)} ر.س '
+                      '($comparisonText)',
+                      style: TextStyle(
+                        color: difference >= 0
+                            ? AppColors.success
+                            : AppColors.danger,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 16),
+
+          GlassCard(
+            palette: p,
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.stretch,
+              children: [
+                sectionHeader(
+                  p,
+                  Icons.pie_chart,
+                  'توزيع الدخل',
+                ),
+                const SizedBox(height: 16),
+                if (monthlyGross <= 0)
+                  Center(
+                    child: Text(
+                      'لا توجد بيانات لهذا الشهر',
+                      style: TextStyle(
+                        color: p.textMuted,
+                      ),
+                    ),
+                  )
+                else
+                  _IncomeDistribution(
+                    palette: p,
+                    gross: monthlyGross,
+                    rent: monthlyRent,
+                    companyGas: monthlyCompanyGas,
+                    personalGas: monthlyPersonalGas,
+                    otherExpenses: monthlyOtherExpenses,
+                    net: monthlyNet,
+                  ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: onShareReport,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: p.gold,
+                      foregroundColor: p.isDark
+                          ? const Color(0xFF0B1F3A)
+                          : Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(14),
+                      ),
+                    ),
+                    icon: const Icon(Icons.share),
+                    label: const Text('مشاركة'),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SizedBox(
+                  height: 50,
+                  child: OutlinedButton.icon(
+                    onPressed: onSaveReport,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: p.gold,
+                      side: BorderSide(color: p.gold),
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(14),
+                      ),
+                    ),
+                    icon: const Icon(Icons.download),
+                    label: const Text('حفظ بالمعرض'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IncomeDistribution extends StatelessWidget {
+  final Palette palette;
+  final double gross;
+  final double rent;
+  final double companyGas;
+  final double personalGas;
+  final double otherExpenses;
+  final double net;
+
+  const _IncomeDistribution({
+    required this.palette,
+    required this.gross,
+    required this.rent,
+    required this.companyGas,
+    required this.personalGas,
+    required this.otherExpenses,
+    required this.net,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = palette;
+    final positiveNet = net > 0 ? net : 0.0;
+    final total = gross <= 0 ? 1.0 : gross;
+
+    final parts = <Widget>[];
+
+    void addPart(double value, Color color) {
+      if (value <= 0) return;
+
+      final flex = (value / total * 1000).round();
+      if (flex <= 0) return;
+
+      parts.add(
+        Expanded(
+          flex: flex,
+          child: Container(color: color),
+        ),
+      );
+    }
+
+    addPart(positiveNet, AppColors.success);
+    addPart(rent, p.gold);
+    addPart(companyGas, AppColors.danger);
+    addPart(personalGas, const Color(0xFFFF8A65));
+    addPart(otherExpenses, AppColors.otherExpense);
+
+    return Column(
+      children: [
+        if (parts.isNotEmpty)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              height: 22,
+              child: Row(children: parts),
+            ),
+          ),
+        if (net < 0) ...[
+          const SizedBox(height: 8),
+          Text(
+            'المصروفات أعلى من الإيرادات بمقدار ${money(net.abs())}',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.danger,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 14,
+          runSpacing: 8,
+          children: [
+            _LegendDot(
+              palette: p,
+              color: AppColors.success,
+              label: 'صافي الربح',
+            ),
+            _LegendDot(
+              palette: p,
+              color: p.gold,
+              label: 'الإيجار',
+            ),
+            _LegendDot(
+              palette: p,
+              color: AppColors.danger,
+              label: 'بنزين الشركة',
+            ),
+            _LegendDot(
+              palette: p,
+              color: const Color(0xFFFF8A65),
+              label: 'بنزين الجيب',
+            ),
+            if (otherExpenses > 0)
+              _LegendDot(
+                palette: p,
+                color: AppColors.otherExpense,
+                label: 'مصاريف أخرى',
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// ============================================================
+// تبويب السجل
+// ============================================================
+
+class _HistoryTab extends StatelessWidget {
+  final Palette palette;
+  final List<DailyRecord> records;
+  final List<GasEntry> gasEntries;
+  final List<OtherExpense> otherExpenses;
+
+  final VoidCallback onAddPastDay;
+  final VoidCallback onAddBulkDays;
+
+  final Future<void> Function(DailyRecord record)
+      onRecordLongPress;
+
+  final Future<void> Function(GasEntry entry)
+      onGasLongPress;
+
+  final Future<void> Function(OtherExpense expense)
+      onOtherLongPress;
+
+  const _HistoryTab({
+    required this.palette,
+    required this.records,
+    required this.gasEntries,
+    required this.otherExpenses,
+    required this.onAddPastDay,
+    required this.onAddBulkDays,
+    required this.onRecordLongPress,
+    required this.onGasLongPress,
+    required this.onOtherLongPress,
+  });
+
+  Widget _empty(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Center(
+        child: Text(
+          text,
+          style: TextStyle(color: palette.textMuted),
+        ),
+      ),
+    );
+  }
+
+  Widget _card({
+    required Widget child,
+    required VoidCallback onLongPress,
+  }) {
+    return GestureDetector(
+      onLongPress: onLongPress,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 5),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: palette.isDark
+              ? Colors.white.withOpacity(.04)
+              : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: palette.cardBorder),
+        ),
+        child: child,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = palette;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          GlassCard(
+            palette: p,
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.stretch,
+              children: [
+                sectionHeader(
+                  p,
+                  Icons.receipt_long,
+                  'سجل الأيام',
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        onPressed: onAddBulkDays,
+                        icon: Icon(
+                          Icons.playlist_add,
+                          color: p.gold,
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: onAddPastDay,
+                        icon: Icon(
+                          Icons.add,
+                          color: p.gold,
+                          size: 18,
+                        ),
+                        label: Text(
+                          'إضافة يوم',
+                          style: TextStyle(color: p.gold),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(color: p.cardBorder),
+                if (records.isEmpty)
+                  _empty('لا توجد سجلات لهذا الشهر')
+                else
+                  ...records.map(
+                    (record) => _card(
+                      onLongPress: () =>
+                          onRecordLongPress(record),
+                      child: Row(
+                        mainAxisAlignment:
+                            MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                DateFormat('yyyy-MM-dd')
+                                    .format(record.date),
+                                style: TextStyle(
+                                  color: p.textPrimary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                record.isWorkDay
+                                    ? 'يوم عمل - ${record.ordersCount} طلب'
+                                    : 'يوم إجازة',
+                                style: TextStyle(
+                                  color: record.isWorkDay
+                                      ? p.gold
+                                      : AppColors.danger,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              if (record.isWorkDay)
+                                Text(
+                                  'سعر الطلب: ${money(record.orderPrice)}',
+                                  style: TextStyle(
+                                    color: p.textMuted,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          Text(
+                            money(record.grossIncome),
+                            style: TextStyle(
+                              color: p.textSecondary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          GlassCard(
+            palette: p,
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.stretch,
+              children: [
+                sectionHeader(
+                  p,
+                  Icons.local_gas_station,
+                  'سجل البنزين',
+                ),
+                Divider(color: p.cardBorder),
+                if (gasEntries.isEmpty)
+                  _empty('لا توجد عمليات بنزين لهذا الشهر')
+                else
+                  ...gasEntries.map(
+                    (entry) => _card(
+                      onLongPress: () =>
+                          onGasLongPress(entry),
+                      child: Row(
+                        mainAxisAlignment:
+                            MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                DateFormat('yyyy-MM-dd')
+                                    .format(entry.date),
+                                style: TextStyle(
+                                  color: p.textPrimary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                entry.isCompany
+                                    ? 'بنزين الشركة'
+                                    : 'بنزين الجيب',
+                                style: TextStyle(
+                                  color: p.textMuted,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            money(entry.amount),
+                            style: TextStyle(
+                              color: p.gold,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          GlassCard(
+            palette: p,
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.stretch,
+              children: [
+                sectionHeader(
+                  p,
+                  Icons.receipt_long,
+                  'سجل المصاريف الأخرى',
+                ),
+                Divider(color: p.cardBorder),
+                if (otherExpenses.isEmpty)
+                  _empty('لا توجد مصاريف إضافية لهذا الشهر')
+                else
+                  ...otherExpenses.map(
+                    (expense) => _card(
+                      onLongPress: () =>
+                          onOtherLongPress(expense),
+                      child: Row(
+                        mainAxisAlignment:
+                            MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  DateFormat('yyyy-MM-dd')
+                                      .format(expense.date),
+                                  style: TextStyle(
+                                    color: p.textPrimary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  '${expense.categoryIcon} '
+                                  '${expense.categoryLabel}'
+                                  '${expense.description.isEmpty ? '' : ' - ${expense.description}'}',
+                                  maxLines: 2,
+                                  overflow:
+                                      TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: AppColors.otherExpense,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            money(expense.amount),
+                            style: const TextStyle(
+                              color: AppColors.danger,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+// رسام التقرير الشهري
+// ============================================================
+
+class _ReportPainter extends CustomPainter {
+  final String monthName;
+  final String previousMonthName;
+  final int year;
+  final MonthStats current;
+  final MonthStats previous;
+  final Map<int, double> dailySeries;
+  final int daysInMonth;
+  final bool isDark;
+  final ui.Image? logoImage;
+
+  _ReportPainter({
+    required this.monthName,
+    required this.previousMonthName,
+    required this.year,
+    required this.current,
+    required this.previous,
+    required this.dailySeries,
+    required this.daysInMonth,
+    required this.isDark,
+    required this.logoImage,
+  });
+
+  static const gold = Color(0xFFD4AF37);
+  static const success = Color(0xFF2FBE77);
+  static const danger = Color(0xFFE0555F);
+  static const other = Color(0xFF4A9BD9);
+  static const personalGas = Color(0xFFFF8A65);
+  static const margin = 50.0;
+
+  Color get bg1 => isDark
+      ? const Color(0xFF0B1F3A)
+      : const Color(0xFFFFF8E8);
+
+  Color get bg2 => isDark
+      ? const Color(0xFF0A1428)
+      : const Color(0xFFF0E4C8);
+
+  Color get card => isDark
+      ? const Color(0xFF13294D)
+      : Colors.white;
+
+  Color get primary => isDark
+      ? Colors.white
+      : const Color(0xFF241905);
+
+  Color get secondary => isDark
+      ? Colors.white70
+      : const Color(0xFF6B5A34);
+
+  Color get muted => isDark
+      ? Colors.white54
+      : const Color(0xFF9C8A5E);
+
+  Color get border => isDark
+      ? Colors.white.withOpacity(.12)
+      : const Color(0xFFE9D9AE);
+
+  Color get grid => isDark
+      ? Colors.white.withOpacity(.07)
+      : const Color(0xFFE9D9AE).withOpacity(.65);
+
+  @override
+  bool shouldRepaint(covariant _ReportPainter oldDelegate) {
+    return oldDelegate.current.net != current.net ||
+        oldDelegate.current.orders != current.orders ||
+        oldDelegate.monthName != monthName ||
+        oldDelegate.year != year;
+  }
+
+  TextPainter _tp(
+    String text,
+    double size,
+    Color color, {
+    bool bold = false,
+    double maxWidth = 1080,
+  }) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          fontFamily: 'Thmanyah',
+          fontSize: size,
+          color: color,
+          fontWeight: bold
+              ? FontWeight.bold
+              : FontWeight.normal,
+        ),
+      ),
+      textDirection: ui.TextDirection.rtl,
+      textAlign: TextAlign.right,
+      maxLines: 10,
+    );
+
+    painter.layout(maxWidth: maxWidth);
+    return painter;
+  }
+
+  void text(
+    Canvas canvas,
+    String value,
+    Offset position,
+    double size,
+    Color color, {
+    bool bold = false,
+    bool center = false,
+    bool right = false,
+    double maxWidth = 1080,
+  }) {
+    final painter = _tp(
+      value,
+      size,
+      color,
+      bold: bold,
+      maxWidth: maxWidth,
+    );
+
+    double x = position.dx;
+
+    if (center) {
+      x -= painter.width / 2;
+    } else if (right) {
+      x -= painter.width;
+    }
+
+    painter.paint(
+      canvas,
+      Offset(
+        x,
+        position.dy - painter.height / 2,
+      ),
+    );
+  }
+
+  void panel(
+    Canvas canvas,
+    Rect rect,
+  ) {
+    final rounded = RRect.fromRectAndRadius(
+      rect,
+      const Radius.circular(18),
+    );
+
+    canvas.drawRRect(
+      rounded,
+      Paint()..color = card,
+    );
+
+    canvas.drawRRect(
+      rounded,
+      Paint()
+        ..color = border
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2,
+    );
+  }
+
+  String amount(double value) {
+    return '${value.toStringAsFixed(1)} ر.س';
+  }
+
+  String integer(double value) {
+    return value.toStringAsFixed(0);
+  }
+
+  double fraction(double value, double total) {
+    if (total <= 0) return 0.0;
+    return (value / total).clamp(0.0, 1.0).toDouble();
+  }
+
+  double change(double value, double oldValue) {
+    if (oldValue.abs() < .01) return 0;
+    return (value - oldValue) / oldValue.abs() * 100;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [bg1, bg2],
+        ).createShader(rect),
+    );
+
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, 7),
+      Paint()..color = gold,
+    );
+
+    double y = 60;
+
+    _drawLogo(canvas, Offset(margin + 40, y + 40));
+
+    text(
+      canvas,
+      'التقرير المالي الشهري',
+      Offset(size.width / 2, y + 30),
+      34,
+      primary,
+      bold: true,
+      center: true,
+    );
+
+    text(
+      canvas,
+      'تقرير شهر $monthName $year',
+      Offset(size.width / 2, y + 70),
+      20,
+      secondary,
+      center: true,
+    );
+
+    text(
+      canvas,
+      DateFormat('yyyy/MM/dd').format(DateTime.now()),
+      Offset(size.width - margin, y + 40),
+      15,
+      muted,
+      right: true,
+    );
+
+    y += 110;
+
+    canvas.drawRect(
+      Rect.fromLTWH(
+        margin,
+        y,
+        size.width - margin * 2,
+        1,
+      ),
+      Paint()..color = gold.withOpacity(.4),
+    );
+
+    y += 40;
+
+    final gap = 25.0;
+    final cardWidth =
+        (size.width - margin * 2 - gap * 3) / 4;
+    const cardHeight = 175.0;
+
+    _kpi(
+      canvas,
+      Rect.fromLTWH(
+        margin,
+        y,
+        cardWidth,
+        cardHeight,
+      ),
+      '${current.orders}',
+      'إجمالي الطلبات',
+      gold,
+      current.orders.toDouble(),
+      previous.orders.toDouble(),
+    );
+
+    _kpi(
+      canvas,
+      Rect.fromLTWH(
+        margin + (cardWidth + gap),
+        y,
+        cardWidth,
+        cardHeight,
+      ),
+      integer(current.gross),
+      'إجمالي الإيرادات',
+      success,
+      current.gross,
+      previous.gross,
+    );
+
+    _kpi(
+      canvas,
+      Rect.fromLTWH(
+        margin + (cardWidth + gap) * 2,
+        y,
+        cardWidth,
+        cardHeight,
+      ),
+      integer(current.expenses),
+      'إجمالي المصروفات',
+      danger,
+      current.expenses,
+      previous.expenses,
+    );
+
+    _kpi(
+      canvas,
+      Rect.fromLTWH(
+        margin + (cardWidth + gap) * 3,
+        y,
+        cardWidth,
+        cardHeight,
+      ),
+      integer(current.net),
+      'صافي الدخل',
+      current.net >= 0 ? success : danger,
+      current.net,
+      previous.net,
+    );
+
+    y += cardHeight + 40;
+
+    final half =
+        (size.width - margin * 2 - gap) / 2;
+    const firstHeight = 430.0;
+
+    final left = Rect.fromLTWH(
+      margin,
+      y,
+      half,
+      firstHeight,
+    );
+
+    final right = Rect.fromLTWH(
+      margin + half + gap,
+      y,
+      half,
+      firstHeight,
+    );
+
+    panel(canvas, left);
+    panel(canvas, right);
+
+    text(
+      canvas,
+      'الإيرادات خلال الشهر',
+      Offset(left.center.dx, y + 32),
+      20,
+      primary,
+      bold: true,
+      center: true,
+    );
+
+    _lineChart(
+      canvas,
+      Rect.fromLTWH(
+        left.left + 30,
+        y + 70,
+        left.width - 60,
+        firstHeight - 110,
+      ),
+    );
+
+    text(
+      canvas,
+      'توزيع المصروفات',
+      Offset(right.center.dx, y + 32),
+      20,
+      primary,
+      bold: true,
+      center: true,
+    );
+
+    _donut(
+      canvas,
+      right,
+      y + 70,
+      firstHeight - 110,
+    );
+
+    y += firstHeight + 40;
+
+    const secondHeight = 420.0;
+
+    final leftSecond = Rect.fromLTWH(
+      margin,
+      y,
+      half,
+      secondHeight,
+    );
+
+    final rightSecond = Rect.fromLTWH(
+      margin + half + gap,
+      y,
+      half,
+      secondHeight,
+    );
+
+    panel(canvas, leftSecond);
+    panel(canvas, rightSecond);
+
+    text(
+      canvas,
+      'تفاصيل المصروفات',
+      Offset(leftSecond.center.dx, y + 32),
+      20,
+      primary,
+      bold: true,
+      center: true,
+    );
+
+    _expenseTable(
+      canvas,
+      leftSecond.left + 25,
+      y + 75,
+      leftSecond.width - 50,
+    );
+
+    text(
+      canvas,
+      'مقارنة صافي الدخل',
+      Offset(rightSecond.center.dx, y + 32),
+      20,
+      primary,
+      bold: true,
+      center: true,
+    );
+
+    _comparison(
+      canvas,
+      rightSecond.left + 35,
+      y + 90,
+      rightSecond.width - 70,
+      secondHeight - 120,
+    );
+
+    y += secondHeight + 40;
+
+    const tableHeight = 230.0;
+
+    final tableRect = Rect.fromLTWH(
+      margin,
+      y,
+      size.width - margin * 2,
+      tableHeight,
+    );
+
+    panel(canvas, tableRect);
+
+    text(
+      canvas,
+      'مقارنة شهرية',
+      Offset(tableRect.center.dx, y + 32),
+      20,
+      primary,
+      bold: true,
+      center: true,
+    );
+
+    _monthlyTable(
+      canvas,
+      margin + 30,
+      y + 70,
+      size.width - margin * 2 - 60,
+    );
+
+    y += tableHeight + 40;
+
+    const summaryHeight = 200.0;
+
+    final summaryRect = Rect.fromLTWH(
+      margin,
+      y,
+      size.width - margin * 2,
+      summaryHeight,
+    );
+
+    panel(canvas, summaryRect);
+
+    text(
+      canvas,
+      'ملخص تنفيذي',
+      Offset(size.width - margin - 30, y + 35),
+      20,
+      gold,
+      bold: true,
+      right: true,
+    );
+
+    final difference = current.net - previous.net;
+    final direction =
+        difference >= 0 ? 'بارتفاع' : 'بانخفاض';
+
+    final comparison = previous.net.abs() < .01
+        ? 'لا يمكن حساب النسبة لعدم وجود صافي سابق'
+        : '${change(current.net, previous.net).toStringAsFixed(1)}%';
+
+    final summary =
+        'حقق النشاط خلال شهر $monthName $year '
+        'إيرادات قدرها ${amount(current.gross)}، '
+        'وبعد خصم المصروفات البالغة ${amount(current.expenses)} '
+        'بلغ صافي الدخل ${amount(current.net)}، '
+        '$direction قدره ${amount(difference.abs())} '
+        'مقارنة بالشهر السابق ($comparison).';
+
+    final summaryPainter = _tp(
+      summary,
+      18,
+      secondary,
+      maxWidth: size.width - margin * 2 - 60,
+    );
+
+    summaryPainter.paint(
+      canvas,
+      Offset(margin + 30, y + 75),
+    );
+
+    y += summaryHeight + 35;
+
+    canvas.drawRect(
+      Rect.fromLTWH(
+        margin,
+        y,
+        size.width - margin * 2,
+        1,
+      ),
+      Paint()..color = gold.withOpacity(.35),
+    );
+
+    y += 35;
+
+    text(
+      canvas,
+      'كشف الطلبات',
+      Offset(size.width / 2, y),
+      20,
+      primary,
+      bold: true,
+      center: true,
+    );
+
+    text(
+      canvas,
+      'تطوير: باسم محمد',
+      Offset(size.width / 2, y + 32),
+      16,
+      muted,
+      center: true,
+    );
+
+    canvas.drawRect(
+      Rect.fromLTWH(
+        0,
+        size.height - 7,
+        size.width,
+        7,
+      ),
+      Paint()..color = gold,
+    );
+  }
+
+  void _drawLogo(
+    Canvas canvas,
+    Offset center,
+  ) {
+    if (logoImage == null) {
+      canvas.drawCircle(
+        center,
+        33,
+        Paint()..color = gold,
+      );
+      canvas.drawCircle(
+        center,
+        23,
+        Paint()..color = bg1,
+      );
+      canvas.drawCircle(
+        center,
+        11,
+        Paint()..color = gold,
+      );
+      return;
+    }
+
+    final image = logoImage!;
+    final source = Rect.fromLTWH(
+      0,
+      0,
+      image.width.toDouble(),
+      image.height.toDouble(),
+    );
+
+    final destination = Rect.fromCenter(
+      center: center,
+      width: 68,
+      height: 68,
+    );
+
+    canvas.save();
+    canvas.clipPath(
+      Path()..addOval(destination),
+    );
+    canvas.drawImageRect(
+      image,
+      source,
+      destination,
+      Paint()..filterQuality = FilterQuality.high,
+    );
+    canvas.restore();
+  }
+
+  void _kpi(
+    Canvas canvas,
+    Rect rect,
+    String value,
+    String label,
+    Color accent,
+    double currentValue,
+    double previousValue,
+  ) {
+    panel(canvas, rect);
+
+    canvas.drawCircle(
+      Offset(rect.center.dx, rect.top + 42),
+      25,
+      Paint()..color = accent.withOpacity(.18),
+    );
+
+    canvas.drawCircle(
+      Offset(rect.center.dx, rect.top + 42),
+      9,
+      Paint()..color = accent,
+    );
+
+    text(
+      canvas,
+      value,
+      Offset(rect.center.dx, rect.top + 96),
+      26,
+      primary,
+      bold: true,
+      center: true,
+    );
+
+    text(
+      canvas,
+      label,
+      Offset(rect.center.dx, rect.top + 130),
+      14,
+      muted,
+      center: true,
+    );
+
+    final hasPrevious = previousValue.abs() >= .01;
+    final percent = change(currentValue, previousValue);
+
+    text(
+      canvas,
+      hasPrevious
+          ? '${percent >= 0 ? '▲' : '▼'} '
+            '${percent.abs().toStringAsFixed(1)}%'
+          : 'جديد',
+      Offset(rect.center.dx, rect.top + 156),
+      13,
+      percent >= 0 ? success : danger,
+      bold: true,
+      center: true,
+    );
+  }
+
+  void _lineChart(
+    Canvas canvas,
+    Rect rect,
+  ) {
+    if (dailySeries.isEmpty) {
+      text(
+        canvas,
+        'لا توجد بيانات كافية',
+        rect.center,
+        16,
+        muted,
+        center: true,
+      );
+      return;
+    }
+
+    double maxValue = 1;
+
+    for (final value in dailySeries.values) {
+      if (value > maxValue) maxValue = value;
+    }
+
+    for (int i = 0; i <= 3; i++) {
+      final lineY =
+          rect.bottom - rect.height * i / 3;
+
+      canvas.drawRect(
+        Rect.fromLTWH(
+          rect.left,
+          lineY,
+          rect.width,
+          1,
+        ),
+        Paint()..color = grid,
+      );
+    }
+
+    final points = <Offset>[];
+    final divisor =
+        daysInMonth <= 1 ? 1 : daysInMonth - 1;
+
+    for (int day = 1; day <= daysInMonth; day++) {
+      final value = dailySeries[day] ?? 0;
+
+      final x = rect.left +
+          rect.width * (day - 1) / divisor;
+
+      final y = rect.bottom -
+          value / maxValue * rect.height;
+
+      points.add(Offset(x, y));
+    }
+
+    if (points.isEmpty) return;
+
+    final fill = Path()
+      ..moveTo(points.first.dx, rect.bottom);
+
+    for (final point in points) {
+      fill.lineTo(point.dx, point.dy);
+    }
+
+    fill
+      ..lineTo(points.last.dx, rect.bottom)
+      ..close();
+
+    canvas.drawPath(
+      fill,
+      Paint()..color = success.withOpacity(.13),
+    );
+
+    final line = Path()
+      ..moveTo(points.first.dx, points.first.dy);
+
+    for (final point in points.skip(1)) {
+      line.lineTo(point.dx, point.dy);
+    }
+
+    canvas.drawPath(
+      line,
+      Paint()
+        ..color = success
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3,
+    );
+
+    final int step =
+        (daysInMonth / 6).ceil().clamp(1, daysInMonth).toInt();
+
+    for (int day = 1; day <= daysInMonth; day += step) {
+      final x = rect.left +
+          rect.width * (day - 1) / divisor;
+
+      text(
+        canvas,
+        '$day',
+        Offset(x, rect.bottom + 20),
+        12,
+        muted,
+        center: true,
+      );
+    }
+  }
+
+  void _donut(
+    Canvas canvas,
+    Rect panelRect,
+    double top,
+    double height,
+  ) {
+    final total = current.expenses;
+
+    if (total <= 0) {
+      text(
+        canvas,
+        'لا توجد مصروفات',
+        panelRect.center,
+        16,
+        muted,
+        center: true,
+      );
+      return;
+    }
+
+    final center = Offset(
+      panelRect.left + panelRect.width * .34,
+      top + height * .48,
+    );
+
+    final double radius =
+        (height * .30).clamp(55.0, 110.0).toDouble();
+
+    const stroke = 30.0;
+
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..color = grid
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke,
+    );
+
+    double start = -90;
+
+    start = _arc(
+      canvas,
+      center,
+      radius,
+      stroke,
+      start,
+      fraction(current.rent, total),
+      gold,
+    );
+
+    start = _arc(
+      canvas,
+      center,
+      radius,
+      stroke,
+      start,
+      fraction(current.companyGas, total),
+      danger,
+    );
+
+    start = _arc(
+      canvas,
+      center,
+      radius,
+      stroke,
+      start,
+      fraction(current.personalGas, total),
+      personalGas,
+    );
+
+    _arc(
+      canvas,
+      center,
+      radius,
+      stroke,
+      start,
+      fraction(current.otherExpenses, total),
+      other,
+    );
+
+    text(
+      canvas,
+      integer(total),
+      Offset(center.dx, center.dy - 8),
+      20,
+      primary,
+      bold: true,
+      center: true,
+    );
+
+    text(
+      canvas,
+      'ر.س',
+      Offset(center.dx, center.dy + 16),
+      13,
+      muted,
+      center: true,
+    );
+
+    final legendX =
+        panelRect.left + panelRect.width * .64;
+
+    double legendY = top + height * .18;
+
+    _legend(
+      canvas,
+      legendX,
+      legendY,
+      gold,
+      'الإيجار',
+      current.rent,
+    );
+
+    legendY += 55;
+
+    _legend(
+      canvas,
+      legendX,
+      legendY,
+      danger,
+      'بنزين الشركة',
+      current.companyGas,
+    );
+
+    legendY += 55;
+
+    _legend(
+      canvas,
+      legendX,
+      legendY,
+      personalGas,
+      'بنزين الجيب',
+      current.personalGas,
+    );
+
+    legendY += 55;
+
+    _legend(
+      canvas,
+      legendX,
+      legendY,
+      other,
+      'مصاريف أخرى',
+      current.otherExpenses,
+    );
+  }
+
+  double _arc(
+    Canvas canvas,
+    Offset center,
+    double radius,
+    double stroke,
+    double startDegree,
+    double value,
+    Color color,
+  ) {
+    if (value <= 0) return startDegree;
+
+    final sweep = value * 2 * 3.1415926535;
+    final start =
+        startDegree * 3.1415926535 / 180;
+
+    canvas.drawArc(
+      Rect.fromCircle(
+        center: center,
+        radius: radius,
+      ),
+      start,
+      sweep,
+      false,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke,
+    );
+
+    return startDegree + value * 360;
+  }
+
+  void _legend(
+    Canvas canvas,
+    double x,
+    double y,
+    Color color,
+    String label,
+    double value,
+  ) {
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(x, y - 7, 14, 14),
+        const Radius.circular(3),
+      ),
+      Paint()..color = color,
+    );
+
+    text(
+      canvas,
+      label,
+      Offset(x + 22, y),
+      13,
+      secondary,
+    );
+
+    text(
+      canvas,
+      amount(value),
+      Offset(x + 22, y + 21),
+      12,
+      muted,
+    );
+  }
+
+  void _expenseTable(
+    Canvas canvas,
+    double x,
+    double y,
+    double width,
+  ) {
+    const rowHeight = 52.0;
+
+    final items = [
+      ('إيجار السيارة', current.rent, gold),
+      ('بنزين الشركة', current.companyGas, danger),
+      ('بنزين الجيب', current.personalGas, personalGas),
+      ('مصاريف أخرى', current.otherExpenses, other),
+    ];
+
+    canvas.drawRect(
+      Rect.fromLTWH(x, y, width, rowHeight),
+      Paint()..color = gold.withOpacity(.12),
+    );
+
+    text(
+      canvas,
+      'البند',
+      Offset(x + width - 15, y + rowHeight / 2),
+      15,
+      primary,
+      bold: true,
+      right: true,
+    );
+
+    text(
+      canvas,
+      'المبلغ',
+      Offset(x + 15, y + rowHeight / 2),
+      15,
+      primary,
+      bold: true,
+    );
+
+    double rowY = y + rowHeight;
+
+    for (int i = 0; i < items.length; i++) {
+      final item = items[i];
+
+      if (i.isEven) {
+        canvas.drawRect(
+          Rect.fromLTWH(x, rowY, width, rowHeight),
+          Paint()..color = grid.withOpacity(.3),
+        );
+      }
+
+      canvas.drawCircle(
+        Offset(x + width - 20, rowY + rowHeight / 2),
+        5,
+        Paint()..color = item.$3,
+      );
+
+      text(
+        canvas,
+        item.$1,
+        Offset(x + width - 35, rowY + rowHeight / 2),
+        14,
+        secondary,
+        right: true,
+      );
+
+      text(
+        canvas,
+        amount(item.$2),
+        Offset(x + 15, rowY + rowHeight / 2),
+        14,
+        primary,
+      );
+
+      canvas.drawRect(
+        Rect.fromLTWH(x, rowY + rowHeight - 1, width, 1),
+        Paint()..color = grid,
+      );
+
+      rowY += rowHeight;
+    }
+
+    rowY += 12;
+
+    canvas.drawRect(
+      Rect.fromLTWH(x, rowY, width, 1.5),
+      Paint()..color = gold,
+    );
+
+    rowY += 25;
+
+    text(
+      canvas,
+      'الإجمالي',
+      Offset(x + width - 15, rowY),
+      16,
+      primary,
+      bold: true,
+      right: true,
+    );
+
+    text(
+      canvas,
+      amount(current.expenses),
+      Offset(x + 15, rowY),
+      16,
+      danger,
+      bold: true,
+    );
+  }
+
+  void _comparison(
+    Canvas canvas,
+    double x,
+    double y,
+    double width,
+    double height,
+  ) {
+    final maxValue = [
+      previous.net.abs(),
+      current.net.abs(),
+      1.0,
+    ].reduce((a, b) => a > b ? a : b);
+
+    final baseY = y + height * .75;
+    final barWidth = width * .25;
+
+    canvas.drawRect(
+      Rect.fromLTWH(x, baseY, width, 1.5),
+      Paint()..color = grid,
+    );
+
+    final previousHeight =
+        previous.net.abs() / maxValue * height * .6;
+
+    final currentHeight =
+        current.net.abs() / maxValue * height * .6;
+
+    final previousX = x + width * .17;
+    final currentX = x + width * .58;
+
+    final previousColor =
+        previous.net >= 0 ? success : danger;
+
+    final currentColor =
+        current.net >= 0 ? success : danger;
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(
+          previousX,
+          baseY - previousHeight,
+          barWidth,
+          previousHeight,
+        ),
+        const Radius.circular(8),
+      ),
+      Paint()..color = previousColor.withOpacity(.65),
+    );
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(
+          currentX,
+          baseY - currentHeight,
+          barWidth,
+          currentHeight,
+        ),
+        const Radius.circular(8),
+      ),
+      Paint()..color = currentColor,
+    );
+
+    text(
+      canvas,
+      integer(previous.net),
+      Offset(
+        previousX + barWidth / 2,
+        baseY - previousHeight - 18,
+      ),
+      14,
+      previousColor,
+      bold: true,
+      center: true,
+    );
+
+    text(
+      canvas,
+      integer(current.net),
+      Offset(
+        currentX + barWidth / 2,
+        baseY - currentHeight - 18,
+      ),
+      14,
+      currentColor,
+      bold: true,
+      center: true,
+    );
+
+    text(
+      canvas,
+      previousMonthName,
+      Offset(
+        previousX + barWidth / 2,
+        baseY + 22,
+      ),
+      13,
+      muted,
+      center: true,
+    );
+
+    text(
+      canvas,
+      monthName,
+      Offset(
+        currentX + barWidth / 2,
+        baseY + 22,
+      ),
+      13,
+      muted,
+      center: true,
+    );
+
+    if (previous.net.abs() < .01) {
+      text(
+        canvas,
+        'جديد',
+        Offset(x + width / 2, y + 15),
+        17,
+        gold,
+        bold: true,
+        center: true,
+      );
+    } else {
+      final percent =
+          change(current.net, previous.net);
+
+      text(
+        canvas,
+        '${percent >= 0 ? '▲' : '▼'} '
+        '${percent.abs().toStringAsFixed(1)}%',
+        Offset(x + width / 2, y + 15),
+        17,
+        percent >= 0 ? success : danger,
+        bold: true,
+        center: true,
+      );
+    }
+  }
+
+  void _monthlyTable(
+    Canvas canvas,
+    double x,
+    double y,
+    double width,
+  ) {
+    const rowHeight = 38.0;
+
+    final col1 = x;
+    final col2 = x + width * .35;
+    final col3 = x + width * .65;
+
+    canvas.drawRect(
+      Rect.fromLTWH(x, y, width, rowHeight),
+      Paint()..color = gold.withOpacity(.12),
+    );
+
+    text(
+      canvas,
+      'البند',
+      Offset(col1 + width * .15, y + rowHeight / 2),
+      14,
+      primary,
+      bold: true,
+      center: true,
+    );
+
+    text(
+      canvas,
+      previousMonthName,
+      Offset(col2 + width * .15, y + rowHeight / 2),
+      14,
+      primary,
+      bold: true,
+      center: true,
+    );
+
+    text(
+      canvas,
+      monthName,
+      Offset(col3 + width * .15, y + rowHeight / 2),
+      14,
+      primary,
+      bold: true,
+      center: true,
+    );
+
+    final rows = [
+      ('الطلبات', '${previous.orders}', '${current.orders}'),
+      ('الإيرادات', integer(previous.gross), integer(current.gross)),
+      ('المصروفات', integer(previous.expenses), integer(current.expenses)),
+      ('الإيجار', integer(previous.rent), integer(current.rent)),
+      ('الصافي', integer(previous.net), integer(current.net)),
+    ];
+
+    double rowY = y + rowHeight;
+
+    for (int i = 0; i < rows.length; i++) {
+      final row = rows[i];
+      final bold = row.$1 == 'الصافي';
+      final color = bold ? gold : secondary;
+
+      if (i.isEven) {
+        canvas.drawRect(
+          Rect.fromLTWH(x, rowY, width, rowHeight),
+          Paint()..color = grid.withOpacity(.25),
+        );
+      }
+
+      text(
+        canvas,
+        row.$1,
+        Offset(col1 + width * .15, rowY + rowHeight / 2),
+        13,
+        color,
+        bold: bold,
+        center: true,
+      );
+
+      text(
+        canvas,
+        row.$2,
+        Offset(col2 + width * .15, rowY + rowHeight / 2),
+        13,
+        color,
+        bold: bold,
+        center: true,
+      );
+
+      text(
+        canvas,
+        row.$3,
+        Offset(col3 + width * .15, rowY + rowHeight / 2),
+        13,
+        color,
+        bold: bold,
+        center: true,
+      );
+
+      canvas.drawRect(
+        Rect.fromLTWH(x, rowY + rowHeight - 1, width, 1),
+        Paint()..color = grid,
+      );
+
+      rowY += rowHeight;
+    }
+  }
+}
