@@ -31,7 +31,9 @@ class OrderWidgetProvider : AppWidgetProvider() {
 
     private fun handleIncrement(context: Context) {
         val prefs: SharedPreferences = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-        val isShiftOpen = prefs.getBoolean("flutter.shiftOpen", false)
+        val isShiftOpenPref = getSafeBoolean(prefs, "flutter.shiftOpen", false)
+        val activeShiftJson = prefs.getString("flutter.activeShift", null)
+        val isShiftOpen = isShiftOpenPref || !activeShiftJson.isNullOrEmpty()
 
         if (!isShiftOpen) {
             // إذا كانت الوردية مغلقة، فتح التطبيق ليتمكن الكابتن من بدء الوردية
@@ -44,7 +46,6 @@ class OrderWidgetProvider : AppWidgetProvider() {
             return
         }
 
-        val activeShiftJson = prefs.getString("flutter.activeShift", null)
         var newCount = 1
 
         if (!activeShiftJson.isNullOrEmpty()) {
@@ -55,15 +56,15 @@ class OrderWidgetProvider : AppWidgetProvider() {
                 shiftObj.put("ordersCount", newCount)
                 prefs.edit()
                     .putString("flutter.activeShift", shiftObj.toString())
-                    .putInt("flutter.todayOrders", newCount)
+                    .putLong("flutter.todayOrders", newCount.toLong())
                     .apply()
             } catch (_: Exception) {
-                prefs.edit().putInt("flutter.todayOrders", newCount).apply()
+                prefs.edit().putLong("flutter.todayOrders", newCount.toLong()).apply()
             }
         } else {
-            val current = prefs.getInt("flutter.todayOrders", 0)
+            val current = getSafeInt(prefs, "flutter.todayOrders", 0)
             newCount = current + 1
-            prefs.edit().putInt("flutter.todayOrders", newCount).apply()
+            prefs.edit().putLong("flutter.todayOrders", newCount.toLong()).apply()
         }
 
         updateAllWidgets(context)
@@ -71,11 +72,11 @@ class OrderWidgetProvider : AppWidgetProvider() {
 
     private fun handleDecrement(context: Context) {
         val prefs: SharedPreferences = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-        val isShiftOpen = prefs.getBoolean("flutter.shiftOpen", false)
+        val isShiftOpenPref = getSafeBoolean(prefs, "flutter.shiftOpen", false)
+        val activeShiftJson = prefs.getString("flutter.activeShift", null)
+        val isShiftOpen = isShiftOpenPref || !activeShiftJson.isNullOrEmpty()
 
         if (!isShiftOpen) return
-
-        val activeShiftJson = prefs.getString("flutter.activeShift", null)
 
         if (!activeShiftJson.isNullOrEmpty()) {
             try {
@@ -86,16 +87,16 @@ class OrderWidgetProvider : AppWidgetProvider() {
                     shiftObj.put("ordersCount", newCount)
                     prefs.edit()
                         .putString("flutter.activeShift", shiftObj.toString())
-                        .putInt("flutter.todayOrders", newCount)
+                        .putLong("flutter.todayOrders", newCount.toLong())
                         .apply()
                     updateAllWidgets(context)
                 }
             } catch (_: Exception) {}
         } else {
-            val current = prefs.getInt("flutter.todayOrders", 0)
+            val current = getSafeInt(prefs, "flutter.todayOrders", 0)
             if (current > 0) {
                 val newCount = current - 1
-                prefs.edit().putInt("flutter.todayOrders", newCount).apply()
+                prefs.edit().putLong("flutter.todayOrders", newCount.toLong()).apply()
                 updateAllWidgets(context)
             }
         }
@@ -104,6 +105,62 @@ class OrderWidgetProvider : AppWidgetProvider() {
     companion object {
         const val ACTION_INCREMENT = "com.delivery.tracker.ACTION_INCREMENT"
         const val ACTION_DECREMENT = "com.delivery.tracker.ACTION_DECREMENT"
+
+        private fun getSafeBoolean(prefs: SharedPreferences, key: String, defaultVal: Boolean): Boolean {
+            return try {
+                prefs.getBoolean(key, defaultVal)
+            } catch (_: Exception) {
+                defaultVal
+            }
+        }
+
+        private fun getSafeInt(prefs: SharedPreferences, key: String, defaultVal: Int): Int {
+            if (!prefs.contains(key)) return defaultVal
+            return try {
+                prefs.getInt(key, defaultVal)
+            } catch (_: Exception) {
+                try {
+                    prefs.getLong(key, defaultVal.toLong()).toInt()
+                } catch (_: Exception) {
+                    try {
+                        prefs.getString(key, null)?.toIntOrNull() ?: defaultVal
+                    } catch (_: Exception) {
+                        defaultVal
+                    }
+                }
+            }
+        }
+
+        private fun getSafeDouble(prefs: SharedPreferences, key: String, defaultVal: Double): Double {
+            if (!prefs.contains(key)) return defaultVal
+            return try {
+                prefs.getFloat(key, defaultVal.toFloat()).toDouble()
+            } catch (_: Exception) {
+                try {
+                    prefs.getLong(key, defaultVal.toLong()).toDouble()
+                } catch (_: Exception) {
+                    try {
+                        prefs.getInt(key, defaultVal.toInt()).toDouble()
+                    } catch (_: Exception) {
+                        try {
+                            val str = prefs.getString(key, null)
+                            if (str != null) {
+                                val cleaned = if (str.startsWith("VGhpcyBpcyB0aGUgcHJlZml4IGZvciBEb3VibGUu")) {
+                                    str.removePrefix("VGhpcyBpcyB0aGUgcHJlZml4IGZvciBEb3VibGUu")
+                                } else {
+                                    str
+                                }
+                                cleaned.toDoubleOrNull() ?: defaultVal
+                            } else {
+                                defaultVal
+                            }
+                        } catch (_: Exception) {
+                            defaultVal
+                        }
+                    }
+                }
+            }
+        }
 
         fun updateAllWidgets(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
@@ -121,34 +178,11 @@ class OrderWidgetProvider : AppWidgetProvider() {
                 val gasJson = prefs.getString("flutter.gasEntries", "[]") ?: "[]"
                 val otherJson = prefs.getString("flutter.otherExpenses", "[]") ?: "[]"
                 val activeShiftJson = prefs.getString("flutter.activeShift", null)
-                val isShiftOpenPref = prefs.getBoolean("flutter.shiftOpen", false)
+                val isShiftOpenPref = getSafeBoolean(prefs, "flutter.shiftOpen", false)
 
-                val orderPrice = when {
-                    prefs.contains("flutter.orderPrice") -> {
-                        try {
-                            prefs.getFloat("flutter.orderPrice", 10.0f).toDouble()
-                        } catch (_: Exception) {
-                            prefs.getInt("flutter.orderPrice", 10).toDouble()
-                        }
-                    }
-                    else -> 10.0
-                }
-
-                val dailyRent = when {
-                    prefs.contains("flutter.dailyRent") -> {
-                        try {
-                            prefs.getFloat("flutter.dailyRent", 40.0f).toDouble()
-                        } catch (_: Exception) {
-                            prefs.getInt("flutter.dailyRent", 40).toDouble()
-                        }
-                    }
-                    else -> 40.0
-                }
-
-                val dailyTarget = when {
-                    prefs.contains("flutter.dailyTarget") -> prefs.getInt("flutter.dailyTarget", 16)
-                    else -> 16
-                }
+                val orderPrice = getSafeDouble(prefs, "flutter.orderPrice", 10.0)
+                val dailyRent = getSafeDouble(prefs, "flutter.dailyRent", 40.0)
+                val dailyTarget = getSafeInt(prefs, "flutter.dailyTarget", 16)
 
                 val cal = Calendar.getInstance()
                 val curYear = cal.get(Calendar.YEAR)
@@ -160,14 +194,20 @@ class OrderWidgetProvider : AppWidgetProvider() {
                 var todayOrders = 0
                 var activeOrderPrice = orderPrice
 
-                if (isShiftOpenPref && !activeShiftJson.isNullOrEmpty()) {
-                    try {
-                        val shiftObj = JSONObject(activeShiftJson)
-                        isShiftOpen = true
-                        todayOrders = shiftObj.optInt("ordersCount", prefs.getInt("flutter.todayOrders", 0))
-                        activeOrderPrice = shiftObj.optDouble("orderPrice", orderPrice)
-                    } catch (_: Exception) {
-                        isShiftOpen = false
+                if (isShiftOpenPref || !activeShiftJson.isNullOrEmpty()) {
+                    if (!activeShiftJson.isNullOrEmpty()) {
+                        try {
+                            val shiftObj = JSONObject(activeShiftJson)
+                            isShiftOpen = true
+                            todayOrders = shiftObj.optInt("ordersCount", getSafeInt(prefs, "flutter.todayOrders", 0))
+                            activeOrderPrice = shiftObj.optDouble("orderPrice", orderPrice)
+                        } catch (_: Exception) {
+                            isShiftOpen = isShiftOpenPref
+                            todayOrders = getSafeInt(prefs, "flutter.todayOrders", 0)
+                        }
+                    } else {
+                        isShiftOpen = isShiftOpenPref
+                        todayOrders = getSafeInt(prefs, "flutter.todayOrders", 0)
                     }
                 }
 
@@ -256,27 +296,27 @@ class OrderWidgetProvider : AppWidgetProvider() {
                     isShiftOpen -> {
                         displayOrders = todayOrders
                         expectedIncome = todayOrders * activeOrderPrice
-                        views.setTextViewText(R.id.widget_status_badge, "الوردية مفتوحة 🟢")
-                        views.setTextColor(R.id.widget_status_badge, 0xFF2FBE77.toInt())
+                        views.setTextViewText(R.id.widget_status_badge, "الوردية شـغّـالة ●")
+                        views.setTextColor(R.id.widget_status_badge, 0xFF34D399.toInt())
                         views.setInt(R.id.widget_status_badge, "setBackgroundResource", R.drawable.widget_badge_active)
                         val progressPercent = if (dailyTarget > 0) ((todayOrders.toDouble() / dailyTarget) * 100).toInt().coerceIn(0, 100) else 0
-                        views.setTextViewText(R.id.widget_today_target_sub, "من $dailyTarget طلب اليوم ($progressPercent%)")
+                        views.setTextViewText(R.id.widget_today_target_sub, "التارجت: $dailyTarget طلب ($progressPercent%)")
                         views.setProgressBar(R.id.widget_progress_bar, 100, progressPercent, false)
                     }
                     isHolidayToday -> {
                         displayOrders = 0
                         expectedIncome = 0.0
                         views.setTextViewText(R.id.widget_status_badge, "اليوم إجازة 🌴")
-                        views.setTextColor(R.id.widget_status_badge, 0xFFA29BFE.toInt())
+                        views.setTextColor(R.id.widget_status_badge, 0xFFA78BFA.toInt())
                         views.setInt(R.id.widget_status_badge, "setBackgroundResource", R.drawable.widget_badge_closed)
-                        views.setTextViewText(R.id.widget_today_target_sub, "يوم راحة مستحق للكابتن")
+                        views.setTextViewText(R.id.widget_today_target_sub, "يوم راحة مستحق للكابتن 🌴")
                         views.setProgressBar(R.id.widget_progress_bar, 100, 0, false)
                     }
                     isShiftFinishedToday -> {
                         displayOrders = finishedTodayOrders
                         expectedIncome = finishedTodayOrders * orderPrice
                         views.setTextViewText(R.id.widget_status_badge, "تم حفظ الوردية ✓")
-                        views.setTextColor(R.id.widget_status_badge, 0xFFD4AF37.toInt())
+                        views.setTextColor(R.id.widget_status_badge, 0xFFFBBF24.toInt())
                         views.setInt(R.id.widget_status_badge, "setBackgroundResource", R.drawable.widget_badge_closed)
                         val progressPercent = if (dailyTarget > 0) ((finishedTodayOrders.toDouble() / dailyTarget) * 100).toInt().coerceIn(0, 100) else 0
                         views.setTextViewText(R.id.widget_today_target_sub, "اكتملت وردية اليوم ($progressPercent%)")
@@ -286,7 +326,7 @@ class OrderWidgetProvider : AppWidgetProvider() {
                         displayOrders = 0
                         expectedIncome = 0.0
                         views.setTextViewText(R.id.widget_status_badge, "الوردية مغلقة ⚪")
-                        views.setTextColor(R.id.widget_status_badge, 0xFFB0BEC5.toInt())
+                        views.setTextColor(R.id.widget_status_badge, 0xFF94A3B8.toInt())
                         views.setInt(R.id.widget_status_badge, "setBackgroundResource", R.drawable.widget_badge_closed)
                         views.setTextViewText(R.id.widget_today_target_sub, "التارجت اليومي: $dailyTarget طلب")
                         views.setProgressBar(R.id.widget_progress_bar, 100, 0, false)
@@ -300,7 +340,7 @@ class OrderWidgetProvider : AppWidgetProvider() {
 
                 val netFormatted = "${if (netIncome >= 0) "+" else ""}${netIncome.toInt()} ر.س"
                 views.setTextViewText(R.id.widget_month_net, netFormatted)
-                views.setTextColor(R.id.widget_month_net, if (netIncome >= 0) 0xFF2FBE77.toInt() else 0xFFE0555F.toInt())
+                views.setTextColor(R.id.widget_month_net, if (netIncome >= 0) 0xFF34D399.toInt() else 0xFFF87171.toInt())
 
                 // 1. PendingIntent لزر الإضافة (+)
                 val plusIntent = Intent(context, OrderWidgetProvider::class.java).apply {
