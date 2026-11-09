@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ألوان Bento Glass Luxury -->
+    <color name="bento_container_bg">#12151B</color>
+    <color name="bento_container_border">#282F3D</color>
+    <color name="bento_tile_bg">#1C2029</color>
+    <color name="bento_tile_border">#2A313F</color>
+
+    <!-- ألوان التارجت وزر الإضافة (كهرماني برتقالي) -->
+    <color name="bento_amber">#F59E0B</color>
+    <color name="bento_amber_light">#FBBF24</color>
+    
+    <!-- الأرباح وحالة الوردية (أخضر ليموني وزمردي) -->
+    <color name="bento_green_earnings">#22C55E</color>
+    <color name="bento_green_savings">#10B981</color>
+    <color name="bento_pill_bg">#122C23</color>
+    <color name="bento_pill_border">#1D4A3A</color>
+    <color name="bento_pill_text">#34D399</color>
+
+    <!-- الأزرار والنصوص -->
+    <color name="bento_btn_plus">#F59E0B</color>
+    <color name="bento_btn_minus_bg">#262C38</color>
+    <color name="bento_btn_minus_border">#373E4F</color>
+    <color name="bento_text_primary">#FFFFFF</color>
+    <color name="bento_text_secondary">#9CA3AF</color>
+</resources>

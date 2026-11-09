@@ -1,229 +1,235 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/widget_root"
+    android:id="@+id/bento_widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_background"
+    android:background="@drawable/bg_bento_container"
     android:orientation="horizontal"
-    android:paddingLeft="16dp"
-    android:paddingRight="16dp"
-    android:paddingTop="12dp"
-    android:paddingBottom="12dp"
-    android:layoutDirection="rtl"
-    android:gravity="center_vertical">
+    android:layoutDirection="ltr"
+    android:padding="10dp">
 
-    <!-- Right Column: Main Counter & Shift Info -->
+    <!-- العمود الأيسر: حلقة الطلبات والتسجيل السريع -->
     <LinearLayout
-        android:id="@+id/widget_main_section"
+        android:id="@+id/bento_col_left"
         android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:layout_weight="1.3"
-        android:orientation="vertical"
-        android:gravity="center_vertical"
-        android:paddingRight="2dp">
+        android:layout_marginRight="8dp"
+        android:layout_marginEnd="8dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
 
-        <!-- Header: App Name & Shift Status Pill together -->
+        <!-- 1. بطاقة حلقة الإنجاز والطلبات -->
         <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="4dp">
-
-            <ImageView
-                android:layout_width="16dp"
-                android:layout_height="16dp"
-                android:src="@mipmap/ic_launcher"
-                android:layout_marginLeft="6dp"/>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="كابتن زون"
-                android:textColor="#FBBF24"
-                android:textStyle="bold"
-                android:textSize="12sp"
-                android:layout_marginLeft="8dp"/>
-
-            <!-- Status Pill right next to title -->
-            <TextView
-                android:id="@+id/widget_status_badge"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="@drawable/widget_badge_closed"
-                android:paddingLeft="8dp"
-                android:paddingRight="8dp"
-                android:paddingTop="2dp"
-                android:paddingBottom="2dp"
-                android:text="الوردية مغلقة ⚪"
-                android:textColor="#94A3B8"
-                android:textSize="9sp"
-                android:textStyle="bold"/>
-        </LinearLayout>
-
-        <!-- Big Orders Counter -->
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="bottom"
-            android:layout_marginBottom="2dp">
-
-            <TextView
-                android:id="@+id/widget_today_orders"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="0"
-                android:textColor="#FFFFFF"
-                android:textSize="36sp"
-                android:textStyle="bold"
-                android:includeFontPadding="false"/>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text=" طلب اليوم"
-                android:textColor="#CBD5E1"
-                android:textSize="11sp"
-                android:layout_marginRight="6dp"
-                android:layout_marginBottom="5dp"/>
-        </LinearLayout>
-
-        <!-- Subtarget text -->
-        <TextView
-            android:id="@+id/widget_today_target_sub"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="التارجت اليومي: 16 طلب"
-            android:textColor="#FBBF24"
-            android:textSize="10sp"
-            android:layout_marginBottom="3dp"/>
-
-        <!-- Progress Bar -->
-        <ProgressBar
-            android:id="@+id/widget_progress_bar"
-            style="?android:attr/progressBarStyleHorizontal"
+            android:id="@+id/bento_tile_ring"
             android:layout_width="match_parent"
-            android:layout_height="4dp"
-            android:max="100"
-            android:progress="0"
-            android:progressDrawable="@drawable/widget_progress_bar"
-            android:layout_marginBottom="5dp"/>
+            android:layout_height="0dp"
+            android:layout_weight="1.35"
+            android:background="@drawable/bg_bento_tile"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="8dp">
 
-        <!-- Today Expected Income -->
+            <FrameLayout
+                android:layout_width="74dp"
+                android:layout_height="74dp">
+
+                <ProgressBar
+                    android:id="@+id/pb_bento_ring"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:indeterminate="false"
+                    android:max="100"
+                    android:progress="37"
+                    android:progressDrawable="@drawable/ring_progress_amber" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tv_bento_orders_count"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif-black"
+                        android:includeFontPadding="false"
+                        android:text="0"
+                        android:textColor="@color/bento_text_primary"
+                        android:textSize="26sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tv_bento_progress_percent"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:includeFontPadding="false"
+                        android:text="0%"
+                        android:textColor="@color/bento_amber"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </FrameLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:fontFamily="sans-serif-medium"
+                android:text="طلب اليوم"
+                android:textColor="@color/bento_text_primary"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tv_bento_target_goal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="الهدف: 16"
+                android:textColor="@color/bento_text_secondary"
+                android:textSize="10sp" />
+        </LinearLayout>
+
+        <!-- 2. بطاقة أزرار التسجيل السريع -->
         <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:id="@+id/bento_tile_actions"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginTop="8dp"
+            android:layout_weight="1.0"
+            android:background="@drawable/bg_bento_tile"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="6dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="دخل اليوم: "
-                android:textColor="#94A3B8"
-                android:textSize="10sp"/>
+                android:text="تسجيل سريع ⚡"
+                android:textColor="@color/bento_text_secondary"
+                android:textSize="10sp" />
 
-            <TextView
-                android:id="@+id/widget_today_income"
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="5dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/btn_bento_increment"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="@drawable/btn_bento_plus"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
+                    android:text="+"
+                    android:textColor="#000000"
+                    android:textSize="24sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/btn_bento_decrement"
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:layout_marginLeft="8dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/btn_bento_minus"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
+                    android:text="−"
+                    android:textColor="@color/bento_text_primary"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- العمود الأيمن: كابتن زون والأرباح -->
+    <LinearLayout
+        android:id="@+id/bento_col_right"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <!-- 3. بطاقة الهوية وحالة الوردية -->
+        <LinearLayout
+            android:id="@+id/bento_tile_header"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1.0"
+            android:background="@drawable/bg_bento_tile"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="8dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-bold"
+                android:text="كابتن زون 🛵"
+                android:textColor="@color/bento_text_primary"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tv_bento_shift_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_bento_shift_pill"
+                android:paddingLeft="10dp"
+                android:paddingRight="10dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:text="الوردية شغالة ●"
+                android:textColor="@color/bento_pill_text"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- 4. بطاقة الأرباح والوفر -->
+        <LinearLayout
+            android:id="@+id/bento_tile_earnings"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginTop="8dp"
+            android:layout_weight="1.35"
+            android:background="@drawable/bg_bento_tile"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="8dp">
+
+            <TextView
+                android:id="@+id/tv_bento_today_income"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-black"
+                android:includeFontPadding="false"
                 android:text="0.0 ر.س"
-                android:textColor="#34D399"
-                android:textSize="11sp"
-                android:textStyle="bold"/>
-        </LinearLayout>
-
-    </LinearLayout>
-
-    <!-- Spacer between columns -->
-    <FrameLayout
-        android:layout_width="12dp"
-        android:layout_height="match_parent"/>
-
-    <!-- Left Column: Interactive Controls & Monthly Stats -->
-    <LinearLayout
-        android:layout_width="0dp"
-        android:layout_height="match_parent"
-        android:layout_weight="1.0"
-        android:orientation="vertical"
-        android:gravity="center">
-
-        <!-- Quick Interaction Label -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="تسجيل سريع ⚡"
-            android:textColor="#FBBF24"
-            android:textSize="10sp"
-            android:textStyle="bold"
-            android:layout_marginBottom="5dp"/>
-
-        <!-- Interactive Buttons Row (+ and -) -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center"
-            android:layout_marginBottom="6dp">
-
-            <!-- Increment Button (+) -->
-            <TextView
-                android:id="@+id/widget_btn_plus"
-                android:layout_width="50dp"
-                android:layout_height="40dp"
-                android:background="@drawable/widget_btn_add"
-                android:gravity="center"
-                android:text="+"
-                android:textColor="#181100"
+                android:textColor="@color/bento_green_earnings"
                 android:textSize="24sp"
-                android:textStyle="bold"
-                android:layout_marginLeft="8dp"/>
-
-            <!-- Decrement Button (-) -->
-            <TextView
-                android:id="@+id/widget_btn_minus"
-                android:layout_width="42dp"
-                android:layout_height="40dp"
-                android:background="@drawable/widget_btn_sub"
-                android:gravity="center"
-                android:text="−"
-                android:textColor="#FFFFFF"
-                android:textSize="22sp"
-                android:textStyle="bold"/>
-        </LinearLayout>
-
-        <!-- Monthly Net Card -->
-        <LinearLayout
-            android:id="@+id/widget_month_card"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/widget_chip_glass"
-            android:paddingLeft="10dp"
-            android:paddingRight="10dp"
-            android:paddingTop="5dp"
-            android:paddingBottom="5dp"
-            android:gravity="center"
-            android:orientation="vertical">
+                android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/widget_month_name_label"
+                android:id="@+id/tv_bento_total_savings"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="صافي الشهر"
-                android:textColor="#94A3B8"
-                android:textSize="9sp"/>
-
-            <TextView
-                android:id="@+id/widget_month_net"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="0 ر.س"
-                android:textColor="#34D399"
+                android:layout_marginTop="4dp"
+                android:text="+0 ر.س"
+                android:textColor="@color/bento_green_savings"
                 android:textSize="12sp"
-                android:textStyle="bold"/>
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="1dp"
+                android:text="صافي التوفير"
+                android:textColor="@color/bento_text_secondary"
+                android:textSize="10sp" />
         </LinearLayout>
-
     </LinearLayout>
-
 </LinearLayout>

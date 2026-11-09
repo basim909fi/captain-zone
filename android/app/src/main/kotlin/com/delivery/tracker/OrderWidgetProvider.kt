@@ -36,7 +36,7 @@ class OrderWidgetProvider : AppWidgetProvider() {
         val isShiftOpen = isShiftOpenPref || !activeShiftJson.isNullOrEmpty()
 
         if (!isShiftOpen) {
-            // إذا كانت الوردية مغلقة، فتح التطبيق ليتمكن الكابتن من بدء الوردية
+            // فتح التطبيق إذا كانت الوردية مغلقة
             val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
@@ -282,11 +282,6 @@ class OrderWidgetProvider : AppWidgetProvider() {
                 val effectiveMonthGross = if (isShiftOpen) (monthGross + (todayOrders * activeOrderPrice)) else monthGross
                 val netIncome = effectiveMonthGross - (monthRecordedDays * dailyRent) - monthGas - monthOther
 
-                val monthNames = arrayOf(
-                    "", "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
-                    "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"
-                )
-
                 val views = RemoteViews(context.packageName, R.layout.order_widget)
 
                 val displayOrders: Int
@@ -296,53 +291,48 @@ class OrderWidgetProvider : AppWidgetProvider() {
                     isShiftOpen -> {
                         displayOrders = todayOrders
                         expectedIncome = todayOrders * activeOrderPrice
-                        views.setTextViewText(R.id.widget_status_badge, "الوردية شـغّـالة ●")
-                        views.setTextColor(R.id.widget_status_badge, 0xFF34D399.toInt())
-                        views.setInt(R.id.widget_status_badge, "setBackgroundResource", R.drawable.widget_badge_active)
-                        val progressPercent = if (dailyTarget > 0) ((todayOrders.toDouble() / dailyTarget) * 100).toInt().coerceIn(0, 100) else 0
-                        views.setTextViewText(R.id.widget_today_target_sub, "التارجت: $dailyTarget طلب ($progressPercent%)")
-                        views.setProgressBar(R.id.widget_progress_bar, 100, progressPercent, false)
+                        views.setTextViewText(R.id.tv_bento_shift_status, "الوردية شغالة ●")
+                        views.setTextColor(R.id.tv_bento_shift_status, 0xFF34D399.toInt())
+                        views.setInt(R.id.tv_bento_shift_status, "setBackgroundResource", R.drawable.bg_bento_shift_pill)
                     }
                     isHolidayToday -> {
                         displayOrders = 0
                         expectedIncome = 0.0
-                        views.setTextViewText(R.id.widget_status_badge, "اليوم إجازة 🌴")
-                        views.setTextColor(R.id.widget_status_badge, 0xFFA78BFA.toInt())
-                        views.setInt(R.id.widget_status_badge, "setBackgroundResource", R.drawable.widget_badge_closed)
-                        views.setTextViewText(R.id.widget_today_target_sub, "يوم راحة مستحق للكابتن 🌴")
-                        views.setProgressBar(R.id.widget_progress_bar, 100, 0, false)
+                        views.setTextViewText(R.id.tv_bento_shift_status, "يوم إجازة 🌴")
+                        views.setTextColor(R.id.tv_bento_shift_status, 0xFFA78BFA.toInt())
+                        views.setInt(R.id.tv_bento_shift_status, "setBackgroundResource", R.drawable.bg_bento_shift_pill_closed)
                     }
                     isShiftFinishedToday -> {
                         displayOrders = finishedTodayOrders
                         expectedIncome = finishedTodayOrders * orderPrice
-                        views.setTextViewText(R.id.widget_status_badge, "تم حفظ الوردية ✓")
-                        views.setTextColor(R.id.widget_status_badge, 0xFFFBBF24.toInt())
-                        views.setInt(R.id.widget_status_badge, "setBackgroundResource", R.drawable.widget_badge_closed)
-                        val progressPercent = if (dailyTarget > 0) ((finishedTodayOrders.toDouble() / dailyTarget) * 100).toInt().coerceIn(0, 100) else 0
-                        views.setTextViewText(R.id.widget_today_target_sub, "اكتملت وردية اليوم ($progressPercent%)")
-                        views.setProgressBar(R.id.widget_progress_bar, 100, progressPercent, false)
+                        views.setTextViewText(R.id.tv_bento_shift_status, "اكتملت الوردية ✓")
+                        views.setTextColor(R.id.tv_bento_shift_status, 0xFFFBBF24.toInt())
+                        views.setInt(R.id.tv_bento_shift_status, "setBackgroundResource", R.drawable.bg_bento_shift_pill_closed)
                     }
                     else -> {
                         displayOrders = 0
                         expectedIncome = 0.0
-                        views.setTextViewText(R.id.widget_status_badge, "الوردية مغلقة ⚪")
-                        views.setTextColor(R.id.widget_status_badge, 0xFF94A3B8.toInt())
-                        views.setInt(R.id.widget_status_badge, "setBackgroundResource", R.drawable.widget_badge_closed)
-                        views.setTextViewText(R.id.widget_today_target_sub, "التارجت اليومي: $dailyTarget طلب")
-                        views.setProgressBar(R.id.widget_progress_bar, 100, 0, false)
+                        views.setTextViewText(R.id.tv_bento_shift_status, "الوردية مغلقة ⚪")
+                        views.setTextColor(R.id.tv_bento_shift_status, 0xFF9CA3AF.toInt())
+                        views.setInt(R.id.tv_bento_shift_status, "setBackgroundResource", R.drawable.bg_bento_shift_pill_closed)
                     }
                 }
 
-                views.setTextViewText(R.id.widget_today_orders, "$displayOrders")
-                views.setTextViewText(R.id.widget_today_income, "${String.format("%.1f", expectedIncome)} ر.س")
+                val progressPercent = if (dailyTarget > 0) ((displayOrders.toDouble() / dailyTarget) * 100).toInt().coerceIn(0, 100) else 0
 
-                views.setTextViewText(R.id.widget_month_name_label, "صافي ${monthNames[curMonth]} ($effectiveMonthOrders طلب)")
+                // 1. بطاقة حلقة الإنجاز
+                views.setTextViewText(R.id.tv_bento_orders_count, "$displayOrders")
+                views.setTextViewText(R.id.tv_bento_progress_percent, "$progressPercent%")
+                views.setTextViewText(R.id.tv_bento_target_goal, "الهدف: $dailyTarget")
+                views.setProgressBar(R.id.pb_bento_ring, 100, progressPercent, false)
 
-                val netFormatted = "${if (netIncome >= 0) "+" else ""}${netIncome.toInt()} ر.س"
-                views.setTextViewText(R.id.widget_month_net, netFormatted)
-                views.setTextColor(R.id.widget_month_net, if (netIncome >= 0) 0xFF34D399.toInt() else 0xFFF87171.toInt())
+                // 2. بطاقة الأرباح والوفر
+                views.setTextViewText(R.id.tv_bento_today_income, "${String.format("%.1f", expectedIncome)} ر.س")
+                val netFormatted = "${if (netIncome >= 0) "+" else ""}${String.format("%,d", netIncome.toInt())} ر.س"
+                views.setTextViewText(R.id.tv_bento_total_savings, netFormatted)
+                views.setTextColor(R.id.tv_bento_total_savings, if (netIncome >= 0) 0xFF10B981.toInt() else 0xFFF87171.toInt())
 
-                // 1. PendingIntent لزر الإضافة (+)
+                // 3. أزرار التسجيل السريع
                 val plusIntent = Intent(context, OrderWidgetProvider::class.java).apply {
                     action = ACTION_INCREMENT
                 }
@@ -350,9 +340,8 @@ class OrderWidgetProvider : AppWidgetProvider() {
                     context, 101, plusIntent,
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
-                views.setOnClickPendingIntent(R.id.widget_btn_plus, plusPending)
+                views.setOnClickPendingIntent(R.id.btn_bento_increment, plusPending)
 
-                // 2. PendingIntent لزر الإنقاص (-)
                 val minusIntent = Intent(context, OrderWidgetProvider::class.java).apply {
                     action = ACTION_DECREMENT
                 }
@@ -360,9 +349,9 @@ class OrderWidgetProvider : AppWidgetProvider() {
                     context, 102, minusIntent,
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
-                views.setOnClickPendingIntent(R.id.widget_btn_minus, minusPending)
+                views.setOnClickPendingIntent(R.id.btn_bento_decrement, minusPending)
 
-                // 3. PendingIntent لفتح التطبيق عند الضغط على الودجت أو البطاقات
+                // 4. فتح التطبيق عند النقر
                 val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
                 if (launchIntent != null) {
                     launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -370,9 +359,10 @@ class OrderWidgetProvider : AppWidgetProvider() {
                         context, 100, launchIntent,
                         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                     )
-                    views.setOnClickPendingIntent(R.id.widget_main_section, appPending)
-                    views.setOnClickPendingIntent(R.id.widget_month_card, appPending)
-                    views.setOnClickPendingIntent(R.id.widget_root, appPending)
+                    views.setOnClickPendingIntent(R.id.bento_widget_root, appPending)
+                    views.setOnClickPendingIntent(R.id.bento_tile_ring, appPending)
+                    views.setOnClickPendingIntent(R.id.bento_tile_header, appPending)
+                    views.setOnClickPendingIntent(R.id.bento_tile_earnings, appPending)
                 }
 
                 appWidgetManager.updateAppWidget(appWidgetId, views)
