@@ -5,22 +5,26 @@
     android:layout_height="match_parent"
     android:background="@drawable/widget_background"
     android:orientation="vertical"
-    android:padding="14dp"
+    android:paddingLeft="14dp"
+    android:paddingRight="14dp"
+    android:paddingTop="12dp"
+    android:paddingBottom="12dp"
     android:layoutDirection="rtl"
     android:gravity="center_vertical">
 
-    <!-- Header: App Name + Shift Status Badge -->
+    <!-- Header Row -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginBottom="10dp">
+        android:layout_marginBottom="8dp">
 
         <ImageView
-            android:layout_width="20dp"
-            android:layout_height="20dp"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
             android:src="@mipmap/ic_launcher"
+            android:layout_marginLeft="6dp"
             android:layout_marginStart="6dp"/>
 
         <TextView
@@ -29,24 +33,25 @@
             android:text="كابتن زون"
             android:textColor="#D4AF37"
             android:textStyle="bold"
-            android:textSize="13sp"/>
+            android:textSize="12sp"/>
 
-        <View
+        <FrameLayout
             android:layout_width="0dp"
             android:layout_height="1dp"
             android:layout_weight="1"/>
 
-        <!-- Status Badge -->
         <TextView
             android:id="@+id/widget_status_badge"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:background="@drawable/widget_badge_active"
-            android:paddingHorizontal="10dp"
-            android:paddingVertical="3dp"
+            android:paddingLeft="10dp"
+            android:paddingRight="10dp"
+            android:paddingTop="3dp"
+            android:paddingBottom="3dp"
             android:text="الوردية مفتوحة 🟢"
             android:textColor="#2FBE77"
-            android:textSize="11sp"
+            android:textSize="10sp"
             android:textStyle="bold"/>
     </LinearLayout>
 
@@ -56,7 +61,10 @@
         android:layout_height="wrap_content"
         android:background="@drawable/widget_glass_card"
         android:orientation="vertical"
-        android:padding="12dp"
+        android:paddingLeft="12dp"
+        android:paddingRight="12dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp"
         android:layout_marginBottom="8dp">
 
         <LinearLayout
@@ -78,7 +86,7 @@
                     android:layout_height="wrap_content"
                     android:text="0"
                     android:textColor="#FFFFFF"
-                    android:textSize="28sp"
+                    android:textSize="26sp"
                     android:textStyle="bold"/>
 
                 <TextView
@@ -90,12 +98,13 @@
                     android:textSize="11sp"/>
             </LinearLayout>
 
-            <!-- Vertical Divider -->
-            <View
+            <!-- Vertical Divider as FrameLayout -->
+            <FrameLayout
                 android:layout_width="1dp"
-                android:layout_height="36dp"
+                android:layout_height="32dp"
                 android:background="#20FFFFFF"
-                android:layout_marginHorizontal="10dp"/>
+                android:layout_marginLeft="10dp"
+                android:layout_marginRight="10dp"/>
 
             <!-- Today Expected Income -->
             <LinearLayout
@@ -103,7 +112,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:orientation="vertical"
-                android:gravity="end">
+                android:gravity="right|end">
 
                 <TextView
                     android:id="@+id/widget_today_income"
@@ -111,7 +120,7 @@
                     android:layout_height="wrap_content"
                     android:text="0.0 ر.س"
                     android:textColor="#2FBE77"
-                    android:textSize="18sp"
+                    android:textSize="17sp"
                     android:textStyle="bold"/>
 
                 <TextView
@@ -119,7 +128,7 @@
                     android:layout_height="wrap_content"
                     android:text="الدخل المتوقع اليوم"
                     android:textColor="#80FFFFFF"
-                    android:textSize="11sp"/>
+                    android:textSize="10sp"/>
             </LinearLayout>
         </LinearLayout>
 
@@ -128,7 +137,7 @@
             android:id="@+id/widget_progress_bar"
             style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="match_parent"
-            android:layout_height="5dp"
+            android:layout_height="4dp"
             android:layout_marginTop="8dp"
             android:max="100"
             android:progress="0"
@@ -148,9 +157,12 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:background="@drawable/widget_glass_card"
-            android:paddingHorizontal="10dp"
-            android:paddingVertical="7dp"
+            android:paddingLeft="10dp"
+            android:paddingRight="10dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
             android:orientation="vertical"
+            android:layout_marginLeft="4dp"
             android:layout_marginStart="4dp">
 
             <TextView
@@ -167,7 +179,7 @@
                 android:layout_height="wrap_content"
                 android:text="0 ر.س"
                 android:textColor="#2FBE77"
-                android:textSize="13sp"
+                android:textSize="12sp"
                 android:textStyle="bold"/>
         </LinearLayout>
 
@@ -177,11 +189,14 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:background="@drawable/widget_glass_card"
-            android:paddingHorizontal="10dp"
-            android:paddingVertical="7dp"
+            android:paddingLeft="10dp"
+            android:paddingRight="10dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
             android:orientation="vertical"
+            android:layout_marginRight="4dp"
             android:layout_marginEnd="4dp"
-            android:gravity="end">
+            android:gravity="right|end">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -196,7 +211,7 @@
                 android:layout_height="wrap_content"
                 android:text="0 طلب"
                 android:textColor="#FFFFFF"
-                android:textSize="13sp"
+                android:textSize="12sp"
                 android:textStyle="bold"/>
         </LinearLayout>
     </LinearLayout>
