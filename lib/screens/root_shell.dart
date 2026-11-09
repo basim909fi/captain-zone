@@ -18,6 +18,7 @@ import '../models/other_expense.dart';
 import '../models/settings_data.dart';
 import '../painters/report_painter.dart';
 import '../services/notification_service.dart';
+import '../services/widget_sync_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/palette.dart';
 import '../utils/helpers.dart';
@@ -303,8 +304,20 @@ class _RootShellState extends State<RootShell> {
         });
       }
 
-      // جدولة تذكيرات الشفت إذا كانت مفعلة
-      await NotificationService.scheduleShiftReminders();
+      // جدولة تذكيرات الشفت الذكية مع مراعاة حالة اليوم
+      final today = dateOnly(DateTime.now());
+      final todayRecord = _recordForDate(today);
+      final isHolidayToday = todayRecord != null && !todayRecord.isWorkDay;
+      final isShiftFinishedToday = todayRecord != null && todayRecord.isWorkDay;
+
+      await NotificationService.scheduleShiftReminders(
+        shiftOpen: shiftOpen,
+        isHolidayToday: isHolidayToday,
+        isShiftFinishedToday: isShiftFinishedToday,
+      );
+
+      // تحديث ودجت الشاشة الرئيسية
+      await WidgetSyncService.update();
     } catch (_) {
       if (!mounted) return;
 
@@ -331,6 +344,7 @@ class _RootShellState extends State<RootShell> {
         records.map((record) => record.toJson()).toList(),
       ),
     );
+    await WidgetSyncService.update();
   }
 
   Future<void> _saveMonthlyRents() async {
@@ -342,6 +356,7 @@ class _RootShellState extends State<RootShell> {
         monthlyRents.map((rent) => rent.toJson()).toList(),
       ),
     );
+    await WidgetSyncService.update();
   }
 
   Future<void> _saveGasEntries() async {
@@ -353,6 +368,7 @@ class _RootShellState extends State<RootShell> {
         gasEntries.map((entry) => entry.toJson()).toList(),
       ),
     );
+    await WidgetSyncService.update();
   }
 
   Future<void> _saveOtherExpenses() async {
@@ -364,6 +380,7 @@ class _RootShellState extends State<RootShell> {
         otherExpenses.map((expense) => expense.toJson()).toList(),
       ),
     );
+    await WidgetSyncService.update();
   }
 
   Future<void> _saveAllData() async {
@@ -372,6 +389,7 @@ class _RootShellState extends State<RootShell> {
     await _saveGasEntries();
     await _saveOtherExpenses();
     await SettingsData.save();
+    await WidgetSyncService.update();
   }
 
   Future<void> _saveActiveShift() async {
@@ -387,11 +405,13 @@ class _RootShellState extends State<RootShell> {
         'orderPrice': activeOrderPrice,
       }),
     );
+    await WidgetSyncService.update();
   }
 
   Future<void> _clearActiveShift() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('activeShift');
+    await WidgetSyncService.update();
   }
 
   // ============================================================
@@ -475,6 +495,7 @@ class _RootShellState extends State<RootShell> {
     });
 
     await _saveActiveShift();
+    await NotificationService.cancelShiftStart();
 
     _showSnackBar('بدأت وردية جديدة');
   }
@@ -574,6 +595,7 @@ class _RootShellState extends State<RootShell> {
 
     await _saveRecords();
     await _clearActiveShift();
+    await NotificationService.cancelShiftEnd();
 
     _showSnackBar(
       'تم حفظ الوردية ويمكنك بدء وردية جديدة الآن ✅',
@@ -621,6 +643,8 @@ class _RootShellState extends State<RootShell> {
     });
 
     await _saveRecords();
+    await NotificationService.cancelTodayReminders();
+    await NotificationService.scheduleShiftReminders(isHolidayToday: true);
 
     _showSnackBar('تم تسجيل اليوم كإجازة');
   }
@@ -1198,7 +1222,18 @@ class _RootShellState extends State<RootShell> {
     });
 
     await SettingsData.save();
-    await NotificationService.scheduleShiftReminders();
+
+    final today = dateOnly(DateTime.now());
+    final todayRecord = _recordForDate(today);
+    final isHolidayToday = todayRecord != null && !todayRecord.isWorkDay;
+    final isShiftFinishedToday = todayRecord != null && todayRecord.isWorkDay;
+
+    await NotificationService.scheduleShiftReminders(
+      shiftOpen: shiftOpen,
+      isHolidayToday: isHolidayToday,
+      isShiftFinishedToday: isShiftFinishedToday,
+    );
+    await WidgetSyncService.update();
 
     _showSnackBar('تم حفظ الإعدادات وتحديث التنبيهات ✅');
   }
