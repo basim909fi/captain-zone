@@ -35,7 +35,7 @@ class RootShell extends StatefulWidget {
   State<RootShell> createState() => _RootShellState();
 }
 
-class _RootShellState extends State<RootShell> {
+class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
   bool isLoading = true;
   bool isDarkMode = true;
   int currentTab = 0;
@@ -79,8 +79,54 @@ class _RootShellState extends State<RootShell> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadAllData();
     _loadLogoImage();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _syncFromWidgetState();
+    }
+  }
+
+  Future<void> _syncFromWidgetState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final activeShiftJson = prefs.getString('activeShift');
+      final isShiftOpenInPrefs = prefs.getBool('shiftOpen') ?? false;
+
+      if (!isShiftOpenInPrefs || activeShiftJson == null || activeShiftJson.isEmpty) {
+        if (shiftOpen) {
+          setState(() {
+            shiftOpen = false;
+            shiftStartDate = null;
+            todayOrders = 0;
+          });
+        }
+        return;
+      }
+
+      final data = jsonDecode(activeShiftJson);
+      final newOrders = (data['ordersCount'] as num?)?.toInt() ?? 0;
+      final newDateStr = data['shiftStartDate']?.toString();
+      final newDate = newDateStr != null ? DateTime.tryParse(newDateStr) : null;
+
+      if (newOrders != todayOrders || !shiftOpen) {
+        setState(() {
+          shiftOpen = true;
+          if (newDate != null) shiftStartDate = newDate;
+          todayOrders = newOrders;
+        });
+      }
+    } catch (_) {}
   }
 
   // ============================================================
@@ -284,8 +330,12 @@ class _RootShellState extends State<RootShell> {
         activeOrderPrice = (data['orderPrice'] as num?)?.toDouble() ??
             SettingsData.orderPrice;
       } else {
+        shiftOpen = false;
         activeOrderPrice = SettingsData.orderPrice;
       }
+
+      await prefs.setBool('shiftOpen', shiftOpen);
+      await prefs.setInt('todayOrders', todayOrders);
 
       if (!mounted) return;
 
@@ -405,12 +455,16 @@ class _RootShellState extends State<RootShell> {
         'orderPrice': activeOrderPrice,
       }),
     );
+    await prefs.setBool('shiftOpen', shiftOpen);
+    await prefs.setInt('todayOrders', todayOrders);
     await WidgetSyncService.update();
   }
 
   Future<void> _clearActiveShift() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('activeShift');
+    await prefs.setBool('shiftOpen', false);
+    await prefs.setInt('todayOrders', 0);
     await WidgetSyncService.update();
   }
 

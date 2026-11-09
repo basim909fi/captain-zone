@@ -1,9 +1,11 @@
 package com.delivery.tracker
 
+import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.widget.RemoteViews
 import org.json.JSONArray
@@ -12,13 +14,97 @@ import java.util.Calendar
 
 class OrderWidgetProvider : AppWidgetProvider() {
 
+    override fun onReceive(context: Context, intent: Intent) {
+        super.onReceive(context, intent)
+
+        when (intent.action) {
+            ACTION_INCREMENT -> handleIncrement(context)
+            ACTION_DECREMENT -> handleDecrement(context)
+        }
+    }
+
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         for (id in appWidgetIds) {
             updateWidget(context, appWidgetManager, id)
         }
     }
 
+    private fun handleIncrement(context: Context) {
+        val prefs: SharedPreferences = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        val isShiftOpen = prefs.getBoolean("flutter.shiftOpen", false)
+
+        if (!isShiftOpen) {
+            // إذا كانت الوردية مغلقة، فتح التطبيق ليتمكن الكابتن من بدء الوردية
+            val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+            if (launchIntent != null) {
+                context.startActivity(launchIntent)
+            }
+            return
+        }
+
+        val activeShiftJson = prefs.getString("flutter.activeShift", null)
+        var newCount = 1
+
+        if (!activeShiftJson.isNullOrEmpty()) {
+            try {
+                val shiftObj = JSONObject(activeShiftJson)
+                val current = shiftObj.optInt("ordersCount", 0)
+                newCount = current + 1
+                shiftObj.put("ordersCount", newCount)
+                prefs.edit()
+                    .putString("flutter.activeShift", shiftObj.toString())
+                    .putInt("flutter.todayOrders", newCount)
+                    .apply()
+            } catch (_: Exception) {
+                prefs.edit().putInt("flutter.todayOrders", newCount).apply()
+            }
+        } else {
+            val current = prefs.getInt("flutter.todayOrders", 0)
+            newCount = current + 1
+            prefs.edit().putInt("flutter.todayOrders", newCount).apply()
+        }
+
+        updateAllWidgets(context)
+    }
+
+    private fun handleDecrement(context: Context) {
+        val prefs: SharedPreferences = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        val isShiftOpen = prefs.getBoolean("flutter.shiftOpen", false)
+
+        if (!isShiftOpen) return
+
+        val activeShiftJson = prefs.getString("flutter.activeShift", null)
+
+        if (!activeShiftJson.isNullOrEmpty()) {
+            try {
+                val shiftObj = JSONObject(activeShiftJson)
+                val current = shiftObj.optInt("ordersCount", 0)
+                if (current > 0) {
+                    val newCount = current - 1
+                    shiftObj.put("ordersCount", newCount)
+                    prefs.edit()
+                        .putString("flutter.activeShift", shiftObj.toString())
+                        .putInt("flutter.todayOrders", newCount)
+                        .apply()
+                    updateAllWidgets(context)
+                }
+            } catch (_: Exception) {}
+        } else {
+            val current = prefs.getInt("flutter.todayOrders", 0)
+            if (current > 0) {
+                val newCount = current - 1
+                prefs.edit().putInt("flutter.todayOrders", newCount).apply()
+                updateAllWidgets(context)
+            }
+        }
+    }
+
     companion object {
+        const val ACTION_INCREMENT = "com.delivery.tracker.ACTION_INCREMENT"
+        const val ACTION_DECREMENT = "com.delivery.tracker.ACTION_DECREMENT"
+
         fun updateAllWidgets(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
             val ids = manager.getAppWidgetIds(ComponentName(context, OrderWidgetProvider::class.java))
@@ -35,6 +121,7 @@ class OrderWidgetProvider : AppWidgetProvider() {
                 val gasJson = prefs.getString("flutter.gasEntries", "[]") ?: "[]"
                 val otherJson = prefs.getString("flutter.otherExpenses", "[]") ?: "[]"
                 val activeShiftJson = prefs.getString("flutter.activeShift", null)
+                val isShiftOpenPref = prefs.getBoolean("flutter.shiftOpen", false)
 
                 val orderPrice = when {
                     prefs.contains("flutter.orderPrice") -> {
@@ -73,13 +160,15 @@ class OrderWidgetProvider : AppWidgetProvider() {
                 var todayOrders = 0
                 var activeOrderPrice = orderPrice
 
-                if (!activeShiftJson.isNullOrEmpty()) {
+                if (isShiftOpenPref && !activeShiftJson.isNullOrEmpty()) {
                     try {
                         val shiftObj = JSONObject(activeShiftJson)
                         isShiftOpen = true
-                        todayOrders = shiftObj.optInt("ordersCount", 0)
+                        todayOrders = shiftObj.optInt("ordersCount", prefs.getInt("flutter.todayOrders", 0))
                         activeOrderPrice = shiftObj.optDouble("orderPrice", orderPrice)
-                    } catch (_: Exception) {}
+                    } catch (_: Exception) {
+                        isShiftOpen = false
+                    }
                 }
 
                 var isHolidayToday = false
@@ -207,20 +296,43 @@ class OrderWidgetProvider : AppWidgetProvider() {
                 views.setTextViewText(R.id.widget_today_orders, "$displayOrders")
                 views.setTextViewText(R.id.widget_today_income, "${String.format("%.1f", expectedIncome)} ر.س")
 
-                views.setTextViewText(R.id.widget_month_name_label, "صافي ${monthNames[curMonth]}")
-                views.setTextViewText(R.id.widget_month_orders, "$effectiveMonthOrders طلب")
+                views.setTextViewText(R.id.widget_month_name_label, "صافي ${monthNames[curMonth]} ($effectiveMonthOrders طلب)")
 
                 val netFormatted = "${if (netIncome >= 0) "+" else ""}${netIncome.toInt()} ر.س"
                 views.setTextViewText(R.id.widget_month_net, netFormatted)
                 views.setTextColor(R.id.widget_month_net, if (netIncome >= 0) 0xFF2FBE77.toInt() else 0xFFE0555F.toInt())
 
+                // 1. PendingIntent لزر الإضافة (+)
+                val plusIntent = Intent(context, OrderWidgetProvider::class.java).apply {
+                    action = ACTION_INCREMENT
+                }
+                val plusPending = PendingIntent.getBroadcast(
+                    context, 101, plusIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                views.setOnClickPendingIntent(R.id.widget_btn_plus, plusPending)
+
+                // 2. PendingIntent لزر الإنقاص (-)
+                val minusIntent = Intent(context, OrderWidgetProvider::class.java).apply {
+                    action = ACTION_DECREMENT
+                }
+                val minusPending = PendingIntent.getBroadcast(
+                    context, 102, minusIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                views.setOnClickPendingIntent(R.id.widget_btn_minus, minusPending)
+
+                // 3. PendingIntent لفتح التطبيق عند الضغط على الودجت أو البطاقات
                 val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
                 if (launchIntent != null) {
-                    val pendingIntent = android.app.PendingIntent.getActivity(
-                        context, 0, launchIntent,
-                        android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    val appPending = PendingIntent.getActivity(
+                        context, 100, launchIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                     )
-                    views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
+                    views.setOnClickPendingIntent(R.id.widget_main_section, appPending)
+                    views.setOnClickPendingIntent(R.id.widget_month_card, appPending)
+                    views.setOnClickPendingIntent(R.id.widget_root, appPending)
                 }
 
                 appWidgetManager.updateAppWidget(appWidgetId, views)

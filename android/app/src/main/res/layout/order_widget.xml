@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_background"
-    android:orientation="vertical"
+    android:orientation="horizontal"
     android:paddingLeft="14dp"
     android:paddingRight="14dp"
     android:paddingTop="12dp"
@@ -12,125 +12,95 @@
     android:layoutDirection="rtl"
     android:gravity="center_vertical">
 
-    <!-- Header Row -->
+    <!-- Right Column: Main Counter & Shift Info (Weight 1.25) -->
     <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:layout_marginBottom="8dp">
-
-        <ImageView
-            android:layout_width="18dp"
-            android:layout_height="18dp"
-            android:src="@mipmap/ic_launcher"
-            android:layout_marginLeft="6dp"
-            android:layout_marginStart="6dp"/>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="كابتن زون"
-            android:textColor="#D4AF37"
-            android:textStyle="bold"
-            android:textSize="12sp"/>
-
-        <FrameLayout
-            android:layout_width="0dp"
-            android:layout_height="1dp"
-            android:layout_weight="1"/>
-
-        <TextView
-            android:id="@+id/widget_status_badge"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="@drawable/widget_badge_active"
-            android:paddingLeft="10dp"
-            android:paddingRight="10dp"
-            android:paddingTop="3dp"
-            android:paddingBottom="3dp"
-            android:text="الوردية مفتوحة 🟢"
-            android:textColor="#2FBE77"
-            android:textSize="10sp"
-            android:textStyle="bold"/>
-    </LinearLayout>
-
-    <!-- Center Card: Today Orders & Income -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@drawable/widget_glass_card"
+        android:id="@+id/widget_main_section"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1.25"
         android:orientation="vertical"
-        android:paddingLeft="12dp"
-        android:paddingRight="12dp"
-        android:paddingTop="10dp"
-        android:paddingBottom="10dp"
-        android:layout_marginBottom="8dp">
+        android:gravity="center_vertical"
+        android:paddingRight="6dp">
 
+        <!-- Header: App Name & Shift Status Pill -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:gravity="center_vertical"
+            android:layout_marginBottom="4dp">
 
-            <!-- Today Orders Count -->
-            <LinearLayout
-                android:layout_width="0dp"
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:src="@mipmap/ic_launcher"
+                android:layout_marginLeft="4dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
+                android:text="كابتن زون"
+                android:textColor="#D4AF37"
+                android:textStyle="bold"
+                android:textSize="11sp"/>
 
-                <TextView
-                    android:id="@+id/widget_today_orders"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0"
-                    android:textColor="#FFFFFF"
-                    android:textSize="26sp"
-                    android:textStyle="bold"/>
-
-                <TextView
-                    android:id="@+id/widget_today_target_sub"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="من 16 طلب اليوم"
-                    android:textColor="#D4AF37"
-                    android:textSize="11sp"/>
-            </LinearLayout>
-
-            <!-- Vertical Divider as FrameLayout -->
             <FrameLayout
-                android:layout_width="1dp"
-                android:layout_height="32dp"
-                android:background="#20FFFFFF"
-                android:layout_marginLeft="10dp"
-                android:layout_marginRight="10dp"/>
-
-            <!-- Today Expected Income -->
-            <LinearLayout
                 android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1"/>
+
+            <!-- Status Pill -->
+            <TextView
+                android:id="@+id/widget_status_badge"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical"
-                android:gravity="right|end">
-
-                <TextView
-                    android:id="@+id/widget_today_income"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0.0 ر.س"
-                    android:textColor="#2FBE77"
-                    android:textSize="17sp"
-                    android:textStyle="bold"/>
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="الدخل المتوقع اليوم"
-                    android:textColor="#80FFFFFF"
-                    android:textSize="10sp"/>
-            </LinearLayout>
+                android:background="@drawable/widget_badge_closed"
+                android:paddingLeft="8dp"
+                android:paddingRight="8dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:text="الوردية مغلقة ⚪"
+                android:textColor="#B0BEC5"
+                android:textSize="9sp"
+                android:textStyle="bold"/>
         </LinearLayout>
+
+        <!-- Big Orders Counter -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="bottom">
+
+            <TextView
+                android:id="@+id/widget_today_orders"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0"
+                android:textColor="#FFFFFF"
+                android:textSize="32sp"
+                android:textStyle="bold"
+                android:includeFontPadding="false"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=" طلبات"
+                android:textColor="#80FFFFFF"
+                android:textSize="12sp"
+                android:layout_marginRight="4dp"
+                android:layout_marginBottom="4dp"/>
+        </LinearLayout>
+
+        <!-- Subtarget text -->
+        <TextView
+            android:id="@+id/widget_today_target_sub"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="التارجت اليومي: 16 طلب"
+            android:textColor="#D4AF37"
+            android:textSize="10sp"
+            android:layout_marginBottom="4dp"/>
 
         <!-- Progress Bar -->
         <ProgressBar
@@ -138,32 +108,111 @@
             style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="match_parent"
             android:layout_height="4dp"
-            android:layout_marginTop="8dp"
             android:max="100"
             android:progress="0"
-            android:progressDrawable="@drawable/widget_progress_bar"/>
+            android:progressDrawable="@drawable/widget_progress_bar"
+            android:layout_marginBottom="6dp"/>
+
+        <!-- Today Expected Income -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="دخل اليوم: "
+                android:textColor="#80FFFFFF"
+                android:textSize="10sp"/>
+
+            <TextView
+                android:id="@+id/widget_today_income"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0.0 ر.س"
+                android:textColor="#2FBE77"
+                android:textSize="11sp"
+                android:textStyle="bold"/>
+        </LinearLayout>
+
     </LinearLayout>
 
-    <!-- Bottom Row: Month Net & Month Orders -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
+    <!-- Subtle Vertical Divider -->
+    <FrameLayout
+        android:layout_width="1dp"
+        android:layout_height="match_parent"
+        android:background="#1AFFFFFF"
+        android:layout_marginLeft="6dp"
+        android:layout_marginRight="6dp"/>
 
-        <!-- Card Month Net -->
-        <LinearLayout
-            android:layout_width="0dp"
+    <!-- Left Column: Interactive Controls & Monthly Stats (Weight 0.95) -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="0.95"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:paddingLeft="2dp">
+
+        <!-- Quick Interaction Label -->
+        <TextView
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:background="@drawable/widget_glass_card"
-            android:paddingLeft="10dp"
-            android:paddingRight="10dp"
-            android:paddingTop="6dp"
-            android:paddingBottom="6dp"
-            android:orientation="vertical"
-            android:layout_marginLeft="4dp"
-            android:layout_marginStart="4dp">
+            android:text="تسجيل سريع ⚡"
+            android:textColor="#D4AF37"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="6dp"/>
+
+        <!-- Interactive Buttons Row (+ and -) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginBottom="8dp">
+
+            <!-- Increment Button (+) -->
+            <TextView
+                android:id="@+id/widget_btn_plus"
+                android:layout_width="44dp"
+                android:layout_height="36dp"
+                android:background="@drawable/widget_btn_add"
+                android:gravity="center"
+                android:text="+"
+                android:textColor="#1A1612"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:layout_marginLeft="6dp"
+                android:layout_marginStart="6dp"/>
+
+            <!-- Decrement Button (-) -->
+            <TextView
+                android:id="@+id/widget_btn_minus"
+                android:layout_width="44dp"
+                android:layout_height="36dp"
+                android:background="@drawable/widget_btn_sub"
+                android:gravity="center"
+                android:text="−"
+                android:textColor="#FFFFFF"
+                android:textSize="22sp"
+                android:textStyle="bold"/>
+        </LinearLayout>
+
+        <!-- Monthly Net Card -->
+        <LinearLayout
+            android:id="@+id/widget_month_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/widget_chip_glass"
+            android:paddingLeft="8dp"
+            android:paddingRight="8dp"
+            android:paddingTop="5dp"
+            android:paddingBottom="5dp"
+            android:gravity="center"
+            android:orientation="vertical">
 
             <TextView
                 android:id="@+id/widget_month_name_label"
@@ -171,7 +220,7 @@
                 android:layout_height="wrap_content"
                 android:text="صافي الشهر"
                 android:textColor="#80FFFFFF"
-                android:textSize="10sp"/>
+                android:textSize="9sp"/>
 
             <TextView
                 android:id="@+id/widget_month_net"
@@ -183,37 +232,6 @@
                 android:textStyle="bold"/>
         </LinearLayout>
 
-        <!-- Card Month Orders -->
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:background="@drawable/widget_glass_card"
-            android:paddingLeft="10dp"
-            android:paddingRight="10dp"
-            android:paddingTop="6dp"
-            android:paddingBottom="6dp"
-            android:orientation="vertical"
-            android:layout_marginRight="4dp"
-            android:layout_marginEnd="4dp"
-            android:gravity="right|end">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="طلبات الشهر"
-                android:textColor="#80FFFFFF"
-                android:textSize="10sp"/>
-
-            <TextView
-                android:id="@+id/widget_month_orders"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="0 طلب"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp"
-                android:textStyle="bold"/>
-        </LinearLayout>
     </LinearLayout>
 
 </LinearLayout>
