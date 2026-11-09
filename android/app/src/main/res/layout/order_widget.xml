@@ -6,15 +6,15 @@
     android:background="@drawable/bg_bento_container"
     android:orientation="horizontal"
     android:layoutDirection="ltr"
-    android:padding="10dp">
+    android:padding="8dp">
 
     <!-- العمود الأيسر: حلقة الطلبات والتسجيل السريع -->
     <LinearLayout
         android:id="@+id/bento_col_left"
         android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:layout_marginRight="8dp"
-        android:layout_marginEnd="8dp"
+        android:layout_marginRight="6dp"
+        android:layout_marginEnd="6dp"
         android:layout_weight="1"
         android:orientation="vertical">
 
@@ -23,15 +23,15 @@
             android:id="@+id/bento_tile_ring"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1.35"
+            android:layout_weight="1.2"
             android:background="@drawable/bg_bento_tile"
             android:gravity="center"
             android:orientation="vertical"
-            android:padding="8dp">
+            android:padding="6dp">
 
             <FrameLayout
-                android:layout_width="74dp"
-                android:layout_height="74dp">
+                android:layout_width="66dp"
+                android:layout_height="66dp">
 
                 <ProgressBar
                     android:id="@+id/pb_bento_ring"
@@ -73,22 +73,15 @@
             </FrameLayout>
 
             <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:fontFamily="sans-serif-medium"
-                android:text="طلب اليوم"
-                android:textColor="@color/bento_text_primary"
-                android:textSize="12sp"
-                android:textStyle="bold" />
-
-            <TextView
                 android:id="@+id/tv_bento_target_goal"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="الهدف: 16"
-                android:textColor="@color/bento_text_secondary"
-                android:textSize="10sp" />
+                android:layout_marginTop="3dp"
+                android:includeFontPadding="false"
+                android:text="طلب اليوم (الهدف 16)"
+                android:textColor="@color/bento_text_primary"
+                android:textSize="11sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
         <!-- 2. بطاقة أزرار التسجيل السريع -->
@@ -96,7 +89,7 @@
             android:id="@+id/bento_tile_actions"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="6dp"
             android:layout_weight="1.0"
             android:background="@drawable/bg_bento_tile"
             android:gravity="center"
@@ -107,8 +100,9 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="تسجيل سريع ⚡"
-                android:textColor="@color/bento_text_secondary"
-                android:textSize="10sp" />
+                android:textColor="@color/bento_amber_light"
+                android:textSize="11sp"
+                android:textStyle="bold" />
 
             <LinearLayout
                 android:layout_width="wrap_content"
@@ -119,20 +113,20 @@
 
                 <TextView
                     android:id="@+id/btn_bento_increment"
-                    android:layout_width="44dp"
+                    android:layout_width="52dp"
                     android:layout_height="44dp"
                     android:background="@drawable/btn_bento_plus"
                     android:gravity="center"
                     android:includeFontPadding="false"
                     android:text="+"
-                    android:textColor="#000000"
-                    android:textSize="24sp"
+                    android:textColor="#1A1200"
+                    android:textSize="26sp"
                     android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/btn_bento_decrement"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
                     android:layout_marginLeft="8dp"
                     android:layout_marginStart="8dp"
                     android:background="@drawable/btn_bento_minus"
@@ -140,7 +134,7 @@
                     android:includeFontPadding="false"
                     android:text="−"
                     android:textColor="@color/bento_text_primary"
-                    android:textSize="22sp"
+                    android:textSize="24sp"
                     android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>
@@ -163,7 +157,7 @@
             android:background="@drawable/bg_bento_tile"
             android:gravity="center"
             android:orientation="vertical"
-            android:padding="8dp">
+            android:padding="6dp">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -171,22 +165,22 @@
                 android:fontFamily="sans-serif-bold"
                 android:text="كابتن زون 🛵"
                 android:textColor="@color/bento_text_primary"
-                android:textSize="14sp"
+                android:textSize="16sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/tv_bento_shift_status"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="6dp"
                 android:background="@drawable/bg_bento_shift_pill"
-                android:paddingLeft="10dp"
-                android:paddingRight="10dp"
+                android:paddingLeft="12dp"
+                android:paddingRight="12dp"
                 android:paddingTop="4dp"
                 android:paddingBottom="4dp"
                 android:text="الوردية شغالة ●"
                 android:textColor="@color/bento_pill_text"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -195,12 +189,12 @@
             android:id="@+id/bento_tile_earnings"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_marginTop="8dp"
-            android:layout_weight="1.35"
+            android:layout_marginTop="6dp"
+            android:layout_weight="1.2"
             android:background="@drawable/bg_bento_tile"
             android:gravity="center"
             android:orientation="vertical"
-            android:padding="8dp">
+            android:padding="6dp">
 
             <TextView
                 android:id="@+id/tv_bento_today_income"
@@ -210,24 +204,24 @@
                 android:includeFontPadding="false"
                 android:text="0.0 ر.س"
                 android:textColor="@color/bento_green_earnings"
-                android:textSize="24sp"
+                android:textSize="28sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/tv_bento_total_savings"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
+                android:layout_marginTop="3dp"
                 android:text="+0 ر.س"
                 android:textColor="@color/bento_green_savings"
-                android:textSize="12sp"
+                android:textSize="13sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="1dp"
-                android:text="صافي التوفير"
+                android:text="صافي التوفير 💰"
                 android:textColor="@color/bento_text_secondary"
                 android:textSize="10sp" />
         </LinearLayout>

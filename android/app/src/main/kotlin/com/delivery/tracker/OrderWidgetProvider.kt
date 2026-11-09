@@ -323,7 +323,7 @@ class OrderWidgetProvider : AppWidgetProvider() {
                 // 1. بطاقة حلقة الإنجاز
                 views.setTextViewText(R.id.tv_bento_orders_count, "$displayOrders")
                 views.setTextViewText(R.id.tv_bento_progress_percent, "$progressPercent%")
-                views.setTextViewText(R.id.tv_bento_target_goal, "الهدف: $dailyTarget")
+                views.setTextViewText(R.id.tv_bento_target_goal, "طلب اليوم (الهدف $dailyTarget)")
                 views.setProgressBar(R.id.pb_bento_ring, 100, progressPercent, false)
 
                 // 2. بطاقة الأرباح والوفر
