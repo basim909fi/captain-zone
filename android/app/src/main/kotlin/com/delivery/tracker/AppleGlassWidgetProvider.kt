@@ -315,7 +315,7 @@ class AppleGlassWidgetProvider : AppWidgetProvider() {
                         displayOrders = 0
                         expectedIncome = 0.0
                         views.setTextViewText(R.id.tv_apple_shift_status, "الوردية مغلقة ⚪")
-                        views.setTextColor(R.id.tv_apple_shift_status, 0xFF9CA3AF.toInt())
+                        views.setTextColor(R.id.tv_apple_shift_status, 0xFFCBD5E1.toInt())
                         views.setInt(R.id.tv_apple_shift_status, "setBackgroundResource", R.drawable.bg_apple_shift_pill_closed)
                     }
                 }
