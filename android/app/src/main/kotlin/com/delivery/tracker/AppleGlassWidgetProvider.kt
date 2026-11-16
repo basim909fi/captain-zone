@@ -331,7 +331,7 @@ class AppleGlassWidgetProvider : AppWidgetProvider() {
 
                 // 2. القسم الأيمن: دخل اليوم وطلبات الشهر (هيبة الأرقام وبالهوية الكهرمانية)
                 views.setTextViewText(R.id.tv_apple_today_income, "\u200F${String.format(java.util.Locale.US, "%.1f", expectedIncome)} ر.س")
-                views.setTextViewText(R.id.tv_apple_month_orders, "\u200Fطلبات الشهر: $effectiveMonthOrders")
+                views.setTextViewText(R.id.tv_apple_month_orders, "\u200F$effectiveMonthOrders طلب")
 
                 // 3. أزرار التسجيل السريع (+) و (-)
                 val plusIntent = Intent(context, AppleGlassWidgetProvider::class.java).apply {

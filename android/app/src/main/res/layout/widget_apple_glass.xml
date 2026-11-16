@@ -18,10 +18,10 @@
         android:orientation="vertical"
         android:gravity="center">
 
-        <!-- حلقة التارجت الكهرمانية الذهبية مع مسار خلفي زجاجي دائم -->
+        <!-- حلقة التارجت الكهرمانية الذهبية مع مسار زجاجي دائم -->
         <FrameLayout
-            android:layout_width="68dp"
-            android:layout_height="68dp">
+            android:layout_width="72dp"
+            android:layout_height="72dp">
 
             <ProgressBar
                 android:id="@+id/pb_apple_ring"
@@ -47,7 +47,7 @@
                     android:includeFontPadding="false"
                     android:text="0"
                     android:textColor="#FFFFFF"
-                    android:textSize="24sp"
+                    android:textSize="26sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -57,7 +57,7 @@
                     android:includeFontPadding="false"
                     android:text="0%"
                     android:textColor="#F59E0B"
-                    android:textSize="10sp"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
             </LinearLayout>
         </FrameLayout>
@@ -70,7 +70,7 @@
             android:layout_marginTop="3dp"
             android:includeFontPadding="false"
             android:text="طلب اليوم (الهدف 16)"
-            android:textColor="#E2E8F0"
+            android:textColor="#CBD5E1"
             android:textSize="11sp"
             android:textStyle="bold" />
 
@@ -78,7 +78,7 @@
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="5dp"
             android:gravity="center"
             android:orientation="horizontal">
 
@@ -110,15 +110,16 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- فاصل زجاجي شفاف ناعم -->
+    <!-- فاصل زجاجي ناعم يطفو في المنتصف دون لمس الحواف -->
     <FrameLayout
         android:layout_width="1dp"
-        android:layout_height="match_parent"
-        android:background="#26FFFFFF"
-        android:layout_marginLeft="6dp"
-        android:layout_marginRight="6dp" />
+        android:layout_height="58dp"
+        android:layout_gravity="center_vertical"
+        android:background="#1AFFFFFF"
+        android:layout_marginLeft="8dp"
+        android:layout_marginRight="8dp" />
 
-    <!-- القسم الأيمن: الوردية والدخل وطلبات الشهر (متمركز وموزون مع هيبة للأرقام) -->
+    <!-- القسم الأيمن: الوردية والدخل وطلبات الشهر (بتناغم واتزان كامل) -->
     <LinearLayout
         android:id="@+id/apple_section_right"
         android:layout_width="0dp"
@@ -142,22 +143,22 @@
             android:paddingBottom="3dp"
             android:text="الوردية شغالة ●"
             android:textColor="#34D399"
-            android:textSize="11.5sp"
+            android:textSize="11sp"
             android:textStyle="bold" />
 
-        <!-- 2. دخل اليوم (برقم كبير وواضح مع كلمة توضيحية) -->
+        <!-- 2. دخل اليوم -->
         <TextView
             android:id="@+id/tv_apple_today_income"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="6dp"
             android:fontFamily="sans-serif-black"
             android:includeFontPadding="false"
             android:text="0.0 ر.س"
             android:textDirection="rtl"
             android:textColor="#22C55E"
-            android:textSize="22sp"
+            android:textSize="20sp"
             android:textStyle="bold" />
 
         <TextView
@@ -165,22 +166,35 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
             android:layout_marginTop="1dp"
+            android:includeFontPadding="false"
             android:text="دخل اليوم المتوقع"
             android:textColor="#94A3B8"
-            android:textSize="10.5sp" />
+            android:textSize="10sp" />
 
-        <!-- 3. طلبات الشهر -->
+        <!-- 3. طلبات الشهر (بنفس الهيبة والتنسيق المتناسق) -->
         <TextView
             android:id="@+id/tv_apple_month_orders"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
-            android:layout_marginTop="8dp"
-            android:text="طلبات الشهر: 0"
+            android:layout_marginTop="6dp"
+            android:fontFamily="sans-serif-black"
+            android:includeFontPadding="false"
+            android:text="0 طلب"
             android:textDirection="rtl"
             android:textColor="#FFFFFF"
-            android:textSize="14sp"
+            android:textSize="20sp"
             android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="1dp"
+            android:includeFontPadding="false"
+            android:text="طلبات الشهر"
+            android:textColor="#94A3B8"
+            android:textSize="10sp" />
 
     </LinearLayout>
 
