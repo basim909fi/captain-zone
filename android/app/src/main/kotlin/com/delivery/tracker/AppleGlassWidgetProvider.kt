@@ -325,11 +325,12 @@ class AppleGlassWidgetProvider : AppWidgetProvider() {
                 // 1. القسم الأيسر: الحلقة والعداد والهدف
                 views.setTextViewText(R.id.tv_apple_orders_count, "$displayOrders")
                 views.setTextViewText(R.id.tv_apple_progress_percent, "$progressPercent%")
+                views.setTextColor(R.id.tv_apple_progress_percent, 0xFFF59E0B.toInt())
                 views.setTextViewText(R.id.tv_apple_target_sub, "طلب اليوم (الهدف $dailyTarget)")
                 views.setProgressBar(R.id.pb_apple_ring, 100, progressPercent, false)
 
-                // 2. القسم الأيمن: دخل اليوم وطلبات الشهر (بدون صافي التوفير وبترتيب عربي صحيح)
-                views.setTextViewText(R.id.tv_apple_today_income, "\u200Fدخل اليوم: ${String.format(java.util.Locale.US, "%.1f", expectedIncome)} ر.س")
+                // 2. القسم الأيمن: دخل اليوم وطلبات الشهر (هيبة الأرقام وبالهوية الكهرمانية)
+                views.setTextViewText(R.id.tv_apple_today_income, "\u200F${String.format(java.util.Locale.US, "%.1f", expectedIncome)} ر.س")
                 views.setTextViewText(R.id.tv_apple_month_orders, "\u200Fطلبات الشهر: $effectiveMonthOrders")
 
                 // 3. أزرار التسجيل السريع (+) و (-)

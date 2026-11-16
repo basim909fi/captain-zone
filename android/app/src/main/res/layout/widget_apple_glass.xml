@@ -18,7 +18,7 @@
         android:orientation="vertical"
         android:gravity="center">
 
-        <!-- حلقة التارجت النيون مع مسار خلفي زجاجي شفاف -->
+        <!-- حلقة التارجت الكهرمانية الذهبية مع مسار خلفي زجاجي دائم -->
         <FrameLayout
             android:layout_width="68dp"
             android:layout_height="68dp">
@@ -56,7 +56,7 @@
                     android:layout_height="wrap_content"
                     android:includeFontPadding="false"
                     android:text="0%"
-                    android:textColor="#38BDF8"
+                    android:textColor="#F59E0B"
                     android:textSize="10sp"
                     android:textStyle="bold" />
             </LinearLayout>
@@ -74,7 +74,7 @@
             android:textSize="11sp"
             android:textStyle="bold" />
 
-        <!-- أزرار التسجيل السريع أسفل الحلقة -->
+        <!-- أزرار التسجيل السريع الكهرمانية أسفل الحلقة -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -90,7 +90,7 @@
                 android:gravity="center"
                 android:includeFontPadding="false"
                 android:text="+"
-                android:textColor="#FFFFFF"
+                android:textColor="#1A1200"
                 android:textSize="24sp"
                 android:textStyle="bold" />
 
@@ -110,15 +110,15 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- فاصل زجاجي شفاف وناعم -->
+    <!-- فاصل زجاجي شفاف ناعم -->
     <FrameLayout
         android:layout_width="1dp"
         android:layout_height="match_parent"
-        android:background="#33FFFFFF"
+        android:background="#26FFFFFF"
         android:layout_marginLeft="6dp"
         android:layout_marginRight="6dp" />
 
-    <!-- القسم الأيمن: الوردية والدخل وطلبات الشهر (متمركز وموزون تماماً في المنتصف) -->
+    <!-- القسم الأيمن: الوردية والدخل وطلبات الشهر (متمركز وموزون مع هيبة للأرقام) -->
     <LinearLayout
         android:id="@+id/apple_section_right"
         android:layout_width="0dp"
@@ -138,25 +138,36 @@
             android:background="@drawable/bg_apple_shift_pill"
             android:paddingLeft="12dp"
             android:paddingRight="12dp"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp"
+            android:paddingTop="3dp"
+            android:paddingBottom="3dp"
             android:text="الوردية شغالة ●"
             android:textColor="#34D399"
             android:textSize="11.5sp"
             android:textStyle="bold" />
 
-        <!-- 2. دخل اليوم -->
+        <!-- 2. دخل اليوم (برقم كبير وواضح مع كلمة توضيحية) -->
         <TextView
             android:id="@+id/tv_apple_today_income"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
-            android:layout_marginTop="12dp"
-            android:text="دخل اليوم: 0.0 ر.س"
+            android:layout_marginTop="8dp"
+            android:fontFamily="sans-serif-black"
+            android:includeFontPadding="false"
+            android:text="0.0 ر.س"
             android:textDirection="rtl"
-            android:textColor="#4ADE80"
-            android:textSize="16sp"
+            android:textColor="#22C55E"
+            android:textSize="22sp"
             android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="1dp"
+            android:text="دخل اليوم المتوقع"
+            android:textColor="#94A3B8"
+            android:textSize="10.5sp" />
 
         <!-- 3. طلبات الشهر -->
         <TextView
@@ -164,11 +175,11 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="8dp"
             android:text="طلبات الشهر: 0"
             android:textDirection="rtl"
             android:textColor="#FFFFFF"
-            android:textSize="16sp"
+            android:textSize="14sp"
             android:textStyle="bold" />
 
     </LinearLayout>
