@@ -328,12 +328,9 @@ class AppleGlassWidgetProvider : AppWidgetProvider() {
                 views.setTextViewText(R.id.tv_apple_target_sub, "طلب اليوم (الهدف $dailyTarget)")
                 views.setProgressBar(R.id.pb_apple_ring, 100, progressPercent, false)
 
-                // 2. القسم الأيمن: دخل اليوم وطلبات الشهر وصافي التوفير
-                views.setTextViewText(R.id.tv_apple_today_income, "دخل اليوم: ${String.format("%.1f", expectedIncome)} ر.س")
-                views.setTextViewText(R.id.tv_apple_month_orders, "$effectiveMonthOrders")
-                val netFormatted = "صافي التوفير: ${if (netIncome >= 0) "+" else ""}${String.format("%,d", netIncome.toInt())} ر.س"
-                views.setTextViewText(R.id.tv_apple_total_savings, netFormatted)
-                views.setTextColor(R.id.tv_apple_total_savings, if (netIncome >= 0) 0xFF10B981.toInt() else 0xFFF87171.toInt())
+                // 2. القسم الأيمن: دخل اليوم وطلبات الشهر (بدون صافي التوفير وبترتيب عربي صحيح)
+                views.setTextViewText(R.id.tv_apple_today_income, "\u200Fدخل اليوم: ${String.format(java.util.Locale.US, "%.1f", expectedIncome)} ر.س")
+                views.setTextViewText(R.id.tv_apple_month_orders, "\u200Fطلبات الشهر: $effectiveMonthOrders")
 
                 // 3. أزرار التسجيل السريع (+) و (-)
                 val plusIntent = Intent(context, AppleGlassWidgetProvider::class.java).apply {

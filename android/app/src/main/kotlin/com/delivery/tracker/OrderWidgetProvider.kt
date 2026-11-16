@@ -329,12 +329,9 @@ class OrderWidgetProvider : AppWidgetProvider() {
                 views.setTextViewText(R.id.tv_bento_target_goal, "طلب اليوم (الهدف $dailyTarget)")
                 views.setProgressBar(R.id.pb_bento_ring, 100, progressPercent, false)
 
-                // 2. بطاقة الأرباح والوفر وطلبات الشهر
-                views.setTextViewText(R.id.tv_bento_today_income, "${String.format("%.1f", expectedIncome)} ر.س")
-                val netFormatted = "${if (netIncome >= 0) "+" else ""}${String.format("%,d", netIncome.toInt())} ر.س"
-                views.setTextViewText(R.id.tv_bento_total_savings, netFormatted)
-                views.setTextColor(R.id.tv_bento_total_savings, if (netIncome >= 0) 0xFF10B981.toInt() else 0xFFF87171.toInt())
-                views.setTextViewText(R.id.tv_bento_month_orders, "$effectiveMonthOrders")
+                // 2. بطاقة الأرباح وطلبات الشهر (تمت إزالة صافي التوفير وضبط الترتيب العربي)
+                views.setTextViewText(R.id.tv_bento_today_income, "\u200F${String.format(java.util.Locale.US, "%.1f", expectedIncome)} ر.س")
+                views.setTextViewText(R.id.tv_bento_month_orders, "\u200Fطلبات الشهر: $effectiveMonthOrders")
 
                 // 3. أزرار التسجيل السريع
                 val plusIntent = Intent(context, OrderWidgetProvider::class.java).apply {

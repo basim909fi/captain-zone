@@ -6,10 +6,10 @@
     android:background="@drawable/bg_apple_glass_container"
     android:orientation="horizontal"
     android:layoutDirection="ltr"
-    android:padding="10dp"
+    android:padding="8dp"
     android:gravity="center_vertical">
 
-    <!-- القسم الأيسر: العداد وحلقة التارجت والأزرار -->
+    <!-- القسم الأيسر: حلقة التارجت والأزرار السريعة -->
     <LinearLayout
         android:id="@+id/apple_section_left"
         android:layout_width="0dp"
@@ -18,10 +18,10 @@
         android:orientation="vertical"
         android:gravity="center">
 
-        <!-- حلقة التارجت النيون -->
+        <!-- حلقة التارجت النيون مع مسار خلفي دائم -->
         <FrameLayout
-            android:layout_width="66dp"
-            android:layout_height="66dp">
+            android:layout_width="62dp"
+            android:layout_height="62dp">
 
             <ProgressBar
                 android:id="@+id/pb_apple_ring"
@@ -30,7 +30,7 @@
                 android:layout_height="match_parent"
                 android:indeterminate="false"
                 android:max="100"
-                android:progress="37"
+                android:progress="0"
                 android:progressDrawable="@drawable/ring_progress_cyan" />
 
             <LinearLayout
@@ -47,7 +47,7 @@
                     android:includeFontPadding="false"
                     android:text="0"
                     android:textColor="#FFFFFF"
-                    android:textSize="26sp"
+                    android:textSize="22sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -57,86 +57,86 @@
                     android:includeFontPadding="false"
                     android:text="0%"
                     android:textColor="#38BDF8"
-                    android:textSize="10sp"
+                    android:textSize="9sp"
                     android:textStyle="bold" />
             </LinearLayout>
         </FrameLayout>
 
-        <!-- نص طلب اليوم والهدف -->
+        <!-- نص الهدف اليومي -->
         <TextView
             android:id="@+id/tv_apple_target_sub"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="3dp"
+            android:layout_marginTop="2dp"
             android:includeFontPadding="false"
             android:text="طلب اليوم (الهدف 16)"
-            android:textColor="#E2E8F0"
-            android:textSize="11sp"
+            android:textColor="#CBD5E1"
+            android:textSize="10.5sp"
             android:textStyle="bold" />
 
-        <!-- أزرار التسجيل السريع -->
+        <!-- أزرار التسجيل السريع أسفل الحلقة -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="5dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
             <TextView
                 android:id="@+id/btn_apple_increment"
-                android:layout_width="52dp"
-                android:layout_height="42dp"
+                android:layout_width="48dp"
+                android:layout_height="36dp"
                 android:background="@drawable/btn_apple_plus"
                 android:gravity="center"
                 android:includeFontPadding="false"
                 android:text="+"
                 android:textColor="#FFFFFF"
-                android:textSize="26sp"
+                android:textSize="24sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/btn_apple_decrement"
-                android:layout_width="44dp"
-                android:layout_height="42dp"
-                android:layout_marginLeft="8dp"
-                android:layout_marginStart="8dp"
+                android:layout_width="38dp"
+                android:layout_height="36dp"
+                android:layout_marginLeft="6dp"
+                android:layout_marginStart="6dp"
                 android:background="@drawable/btn_apple_minus"
                 android:gravity="center"
                 android:includeFontPadding="false"
                 android:text="−"
                 android:textColor="#FFFFFF"
-                android:textSize="24sp"
+                android:textSize="22sp"
                 android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>
 
-    <!-- خط فاصل ناعم بالمنتصف -->
+    <!-- فاصل زجاجي خفيف ناعم -->
     <FrameLayout
         android:layout_width="1dp"
         android:layout_height="match_parent"
-        android:background="#1AFFFFFF"
-        android:layout_marginLeft="8dp"
-        android:layout_marginRight="8dp" />
+        android:background="#1FFFFFFF"
+        android:layout_marginLeft="6dp"
+        android:layout_marginRight="6dp" />
 
-    <!-- القسم الأيمن: الوردية والدخل وطلبات الشهر وصافي التوفير -->
+    <!-- القسم الأيمن: الوردية والدخل وطلبات الشهر (3 عناصر منظمة بدون زحمة) -->
     <LinearLayout
         android:id="@+id/apple_section_right"
         android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:layout_weight="1.05"
+        android:layout_weight="1.15"
         android:orientation="vertical"
         android:gravity="center_vertical"
-        android:paddingLeft="2dp"
-        android:paddingRight="2dp">
+        android:paddingLeft="4dp"
+        android:paddingRight="4dp">
 
-        <!-- شارة الوردية الزجاجية -->
+        <!-- 1. شارة الوردية الزجاجية -->
         <TextView
             android:id="@+id/tv_apple_shift_status"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:background="@drawable/bg_apple_shift_pill"
-            android:paddingLeft="12dp"
-            android:paddingRight="12dp"
+            android:paddingLeft="10dp"
+            android:paddingRight="10dp"
             android:paddingTop="3dp"
             android:paddingBottom="3dp"
             android:text="الوردية شغالة ●"
@@ -144,60 +144,28 @@
             android:textSize="11sp"
             android:textStyle="bold" />
 
-        <!-- دخل اليوم -->
+        <!-- 2. دخل اليوم -->
         <TextView
             android:id="@+id/tv_apple_today_income"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="8dp"
             android:text="دخل اليوم: 0.0 ر.س"
-            android:textColor="#22C55E"
-            android:textSize="12sp"
+            android:textDirection="rtl"
+            android:textColor="#4ADE80"
+            android:textSize="13sp"
             android:textStyle="bold" />
 
-        <!-- خط فاصل أفقي رفيع -->
-        <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="#14FFFFFF"
-            android:layout_marginTop="7dp"
-            android:layout_marginBottom="7dp" />
-
-        <!-- طلبات الشهر -->
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="طلبات الشهر: "
-                android:textColor="#94A3B8"
-                android:textSize="11sp" />
-
-            <TextView
-                android:id="@+id/tv_apple_month_orders"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="sans-serif-black"
-                android:includeFontPadding="false"
-                android:text="0"
-                android:textColor="#FFFFFF"
-                android:textSize="22sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <!-- صافي التوفير -->
+        <!-- 3. طلبات الشهر -->
         <TextView
-            android:id="@+id/tv_apple_total_savings"
+            android:id="@+id/tv_apple_month_orders"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="3dp"
-            android:text="صافي التوفير: +0 ر.س"
-            android:textColor="#10B981"
-            android:textSize="12sp"
+            android:layout_marginTop="8dp"
+            android:text="طلبات الشهر: 0"
+            android:textDirection="rtl"
+            android:textColor="#F8FAFC"
+            android:textSize="13.5sp"
             android:textStyle="bold" />
 
     </LinearLayout>

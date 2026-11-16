@@ -159,31 +159,16 @@
             android:orientation="vertical"
             android:padding="6dp">
 
-            <!-- صف طلبات الشهر -->
-            <LinearLayout
+            <!-- طلبات الشهر بنص واحد موحد -->
+            <TextView
+                android:id="@+id/tv_bento_month_orders"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="طلبات الشهر: "
-                    android:textColor="@color/bento_text_secondary"
-                    android:textSize="11sp" />
-
-                <TextView
-                    android:id="@+id/tv_bento_month_orders"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-black"
-                    android:includeFontPadding="false"
-                    android:text="0"
-                    android:textColor="@color/bento_text_primary"
-                    android:textSize="20sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
+                android:text="طلبات الشهر: 0"
+                android:textDirection="rtl"
+                android:textColor="@color/bento_text_primary"
+                android:textSize="14.5sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/tv_bento_shift_status"
@@ -201,7 +186,7 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- 4. بطاقة الأرباح والوفر -->
+        <!-- 4. بطاقة دخل اليوم (بدون صافي التوفير) -->
         <LinearLayout
             android:id="@+id/bento_tile_earnings"
             android:layout_width="match_parent"
@@ -225,22 +210,12 @@
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/tv_bento_total_savings"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
-                android:text="+0 ر.س"
-                android:textColor="@color/bento_green_savings"
-                android:textSize="13sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="1dp"
-                android:text="صافي التوفير 💰"
+                android:layout_marginTop="2dp"
+                android:text="دخل اليوم المتوقع"
                 android:textColor="@color/bento_text_secondary"
-                android:textSize="10sp" />
+                android:textSize="11sp" />
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>

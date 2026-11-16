@@ -1,16 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
-<rotate xmlns:android="http://schemas.android.com/apk/res/android"
-    android:fromDegrees="270"
-    android:toDegrees="270">
-    <shape
-        android:innerRadiusRatio="2.8"
-        android:shape="ring"
-        android:thickness="6dp"
-        android:useLevel="true">
-        <gradient
-            android:centerColor="#38BDF8"
-            android:endColor="#7DD3FC"
-            android:startColor="#0284C7"
-            android:type="sweep" />
-    </shape>
-</rotate>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- مسار الحلقة الدائري الثابت الزجاجي -->
+    <item android:id="@android:id/background">
+        <shape
+            android:innerRadiusRatio="2.8"
+            android:shape="ring"
+            android:thickness="5.5dp"
+            android:useLevel="false">
+            <solid android:color="#222F3E" />
+        </shape>
+    </item>
+    <!-- مؤشر النسبة النيون السماوي من أبل -->
+    <item android:id="@android:id/progress">
+        <rotate
+            android:fromDegrees="270"
+            android:toDegrees="270">
+            <shape
+                android:innerRadiusRatio="2.8"
+                android:shape="ring"
+                android:thickness="5.5dp"
+                android:useLevel="true">
+                <gradient
+                    android:centerColor="#38BDF8"
+                    android:endColor="#7DD3FC"
+                    android:startColor="#0284C7"
+                    android:type="sweep" />
+            </shape>
+        </rotate>
+    </item>
+</layer-list>
