@@ -57,17 +57,18 @@ class OrderWidgetProvider : AppWidgetProvider() {
                 prefs.edit()
                     .putString("flutter.activeShift", shiftObj.toString())
                     .putLong("flutter.todayOrders", newCount.toLong())
-                    .apply()
+                    .commit()
             } catch (_: Exception) {
-                prefs.edit().putLong("flutter.todayOrders", newCount.toLong()).apply()
+                prefs.edit().putLong("flutter.todayOrders", newCount.toLong()).commit()
             }
         } else {
             val current = getSafeInt(prefs, "flutter.todayOrders", 0)
             newCount = current + 1
-            prefs.edit().putLong("flutter.todayOrders", newCount.toLong()).apply()
+            prefs.edit().putLong("flutter.todayOrders", newCount.toLong()).commit()
         }
 
         updateAllWidgets(context)
+        AppleGlassWidgetProvider.updateAllWidgets(context)
     }
 
     private fun handleDecrement(context: Context) {
@@ -88,16 +89,18 @@ class OrderWidgetProvider : AppWidgetProvider() {
                     prefs.edit()
                         .putString("flutter.activeShift", shiftObj.toString())
                         .putLong("flutter.todayOrders", newCount.toLong())
-                        .apply()
+                        .commit()
                     updateAllWidgets(context)
+                    AppleGlassWidgetProvider.updateAllWidgets(context)
                 }
             } catch (_: Exception) {}
         } else {
             val current = getSafeInt(prefs, "flutter.todayOrders", 0)
             if (current > 0) {
                 val newCount = current - 1
-                prefs.edit().putLong("flutter.todayOrders", newCount.toLong()).apply()
+                prefs.edit().putLong("flutter.todayOrders", newCount.toLong()).commit()
                 updateAllWidgets(context)
+                AppleGlassWidgetProvider.updateAllWidgets(context)
             }
         }
     }
@@ -326,11 +329,12 @@ class OrderWidgetProvider : AppWidgetProvider() {
                 views.setTextViewText(R.id.tv_bento_target_goal, "طلب اليوم (الهدف $dailyTarget)")
                 views.setProgressBar(R.id.pb_bento_ring, 100, progressPercent, false)
 
-                // 2. بطاقة الأرباح والوفر
+                // 2. بطاقة الأرباح والوفر وطلبات الشهر
                 views.setTextViewText(R.id.tv_bento_today_income, "${String.format("%.1f", expectedIncome)} ر.س")
                 val netFormatted = "${if (netIncome >= 0) "+" else ""}${String.format("%,d", netIncome.toInt())} ر.س"
                 views.setTextViewText(R.id.tv_bento_total_savings, netFormatted)
                 views.setTextColor(R.id.tv_bento_total_savings, if (netIncome >= 0) 0xFF10B981.toInt() else 0xFFF87171.toInt())
+                views.setTextViewText(R.id.tv_bento_month_orders, "$effectiveMonthOrders")
 
                 // 3. أزرار التسجيل السريع
                 val plusIntent = Intent(context, OrderWidgetProvider::class.java).apply {

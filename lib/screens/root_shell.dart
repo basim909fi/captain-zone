@@ -100,6 +100,7 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
   Future<void> _syncFromWidgetState() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      await prefs.reload();
       final activeShiftJson = prefs.getString('activeShift');
       final isShiftOpenInPrefs = prefs.getBool('shiftOpen') ?? false;
 
@@ -237,6 +238,7 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
       await SettingsData.load();
 
       final prefs = await SharedPreferences.getInstance();
+      await prefs.reload();
 
       isDarkMode = prefs.getBool('isDarkMode') ?? true;
 

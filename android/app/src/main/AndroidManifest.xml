@@ -29,6 +29,7 @@
         </activity>
 
         <receiver android:name="com.delivery.tracker.OrderWidgetProvider"
+            android:label="كابتن زون (بينتو)"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -37,6 +38,18 @@
             </intent-filter>
             <meta-data android:name="android.appwidget.provider"
                 android:resource="@xml/order_widget_info" />
+        </receiver>
+
+        <receiver android:name="com.delivery.tracker.AppleGlassWidgetProvider"
+            android:label="كابتن زون (أبل جلاس)"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.delivery.tracker.ACTION_APPLE_INCREMENT" />
+                <action android:name="com.delivery.tracker.ACTION_APPLE_DECREMENT" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider"
+                android:resource="@xml/apple_glass_widget_info" />
         </receiver>
 
         <!-- مستلم المنبه وجدولة الإشعارات التابع للمكتبة -->

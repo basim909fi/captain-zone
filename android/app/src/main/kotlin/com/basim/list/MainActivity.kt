@@ -1,5 +1,6 @@
 package com.basim.list
 
+import com.delivery.tracker.AppleGlassWidgetProvider
 import com.delivery.tracker.OrderWidgetProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -13,6 +14,7 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             if (call.method == "updateWidget") {
                 OrderWidgetProvider.updateAllWidgets(applicationContext)
+                AppleGlassWidgetProvider.updateAllWidgets(applicationContext)
                 result.success(null)
             } else {
                 result.notImplemented()
