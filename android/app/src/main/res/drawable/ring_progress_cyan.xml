@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- مسار الحلقة الدائري الزجاجي الدائم العريض -->
+    <!-- مسار الحلقة الدائري الزجاجي الدائم المتناسق -->
     <item android:id="@android:id/background">
         <shape
             android:innerRadiusRatio="2.5"
             android:shape="ring"
-            android:thickness="8.5dp"
+            android:thickness="7.5dp"
             android:useLevel="false">
             <solid android:color="#402D3A4E" />
         </shape>
     </item>
-    <!-- مؤشر النسبة الكهرماني الذهبي المتوهج العريض -->
+    <!-- مؤشر النسبة الكهرماني الذهبي المتوهج المتناسق -->
     <item android:id="@android:id/progress">
         <rotate
             android:fromDegrees="270"
@@ -18,7 +18,7 @@
             <shape
                 android:innerRadiusRatio="2.5"
                 android:shape="ring"
-                android:thickness="8.5dp"
+                android:thickness="7.5dp"
                 android:useLevel="true">
                 <gradient
                     android:centerColor="#FBBF24"
